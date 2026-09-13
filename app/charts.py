@@ -206,18 +206,22 @@ def _plan_bar(question: str, rows: list[list[Any]], *, cat: _Col, nums: list[_Co
     if chart_type == "hbar":
         values = list(reversed(values))  # 横条 y 轴自下而上,反转后最大值在最上
     if pie:
-        # 百分比标签的原料在本地算好(数字仍全部来自执行结果),扇区文字/图例/tooltip 直接用;
-        # 图例带"名称 占比",不用拿颜色去图例里对暗号;_mid = 扇区中点角(度,12 点钟起顺时针),
-        # 文字层用它定位——直接给 theta 通道原始值会落在扇区"终点角"上,不居中
+        # 全部角度在本地算好(度,12 点钟起顺时针):_start/_end 给 arc 显式定位,
+        # _mid 给百分比文字定位,_label/_legend 给标注和图例。数字全部来自执行结果。
+        # 不用 vega-lite 的隐式 theta 堆叠:它与第二层 theta 显式 scale 组合时会把
+        # 堆叠值套进角度域,扇区被拉成整圈(实测两轮踩坑,见 notes/pitfalls.md)
         total = sum(rec[m0] for rec in values)
         cum = 0.0
         for rec in values:
-            p = rec[m0] / total * 100 if total else 0.0
+            share = rec[m0] / total if total else 0
+            p = share * 100
             rec["_pct"] = round(p, 1)
             rec["_label"] = f"{p:.1f}%"
             rec["_legend"] = f"{rec[cat.name]} {p:.1f}%"
-            rec["_mid"] = round((cum + (rec[m0] / total if total else 0) / 2) * 360, 2)
-            cum += rec[m0] / total if total else 0
+            rec["_start"] = round(cum * 360, 2)
+            cum += share
+            rec["_end"] = round(cum * 360, 2)
+            rec["_mid"] = round((rec["_start"] + rec["_end"]) / 2, 2)
     return {
         "type": chart_type, "dim": cat.name, "group": None,
         "measures": [nums[0].name] if pie else [m.name for m in nums], "values": values,
@@ -317,18 +321,18 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
         s["encoding"]["tooltip"] = tip
         s["encoding"] = {k: v for k, v in s["encoding"].items() if v is not None}
     elif t == "pie":
-        # 甜甜圈 + 扇区百分比标签:占比一眼可读,小切片(<6%)不标注防挤压;
-        # 图例沉底,标题/图例由 config.padding 留出边缘呼吸空间。
-        # theta 比例尺必须各层独立:文字层用 [0,360] 度定位中点角,arc 层用堆叠值,
-        # 共享时堆叠值(0~合计)会被套进 360 度,扇区全被拉成整圈、叠成一色
+        # 甜甜圈 + 扇区百分比标注(<6% 不标防挤压),图例沉底带"名称 占比"。
+        # arc 用显式 theta/theta2(度,域 [0,360]),与文字层同域——不依赖隐式堆叠,
+        # 也就不存在两层共享比例尺互相污染的问题
         s["height"] = 340
-        s["resolve"] = {"scale": {"theta": "independent"}}
         s["layer"] = [
             {
                 "mark": {"type": "arc", "innerRadius": 60, "cornerRadius": 2,
                          "stroke": "#ffffff", "strokeWidth": 2, "padAngle": 0.02},
                 "encoding": {
-                    "theta": {"field": ms[0], "type": "quantitative"},
+                    "theta": {"field": "_start", "type": "quantitative",
+                              "scale": {"domain": [0, 360]}},
+                    "theta2": {"field": "_end"},
                     "color": {"field": "_legend", "type": "nominal", "title": None, "sort": None,
                               "legend": {"orient": "bottom", "columns": 3}},
                     "tooltip": [{"field": dim, "type": "nominal"},

@@ -41,18 +41,20 @@ def test_pie_when_question_asks_share():
     spec, reading = build_chart("各市场销售额占比", *_bar_table())
     arc = spec["layer"][0]  # 甜甜圈:第一层 arc,第二层扇区百分比文字
     assert arc["mark"]["type"] == "arc" and arc["mark"]["innerRadius"] == 60
-    assert arc["encoding"]["theta"]["field"] == "total"
+    # 显式角度定位(度):不依赖隐式堆叠,theta/theta2 各自绑起止角字段
+    assert arc["encoding"]["theta"]["field"] == "_start"
+    assert arc["encoding"]["theta2"]["field"] == "_end"
+    assert arc["encoding"]["theta"]["scale"]["domain"] == [0, 360]
     assert arc["encoding"]["color"]["field"] == "_legend"  # 图例带"名称 占比",不用颜色对暗号
-    # theta 比例尺两层独立:共享时 arc 的堆叠值被套进文字层的 [0,360] 度,扇区全变整圈
-    assert spec["resolve"] == {"scale": {"theta": "independent"}}
     assert spec["layer"][1]["mark"]["type"] == "text"
     labels = {r["market"]: r["_label"] for r in spec["data"]["values"]}
     assert labels["EU"] == "60.1%"  # 1815/3020,标签在本地算好
     legends = {r["market"]: r["_legend"] for r in spec["data"]["values"]}
     assert legends["EU"] == "EU 60.1%"
-    # 扇区中点角(度,12 点钟起顺时针):EU 60.1% → 108.18,AP 29.97% → 270.3,US 9.93% → 342.12
-    mids = {r["market"]: r["_mid"] for r in spec["data"]["values"]}
-    assert mids == {"EU": 108.18, "AP": 270.3, "US": 342.12}
+    # 起止角/中点角(度,12 点钟起顺时针):EU 60.1% → [0, 216.39],中点 108.18
+    mids = {r["market"]: (r["_start"], r["_end"], r["_mid"]) for r in spec["data"]["values"]}
+    assert mids == {"EU": (0.0, 216.36, 108.18), "AP": (216.36, 324.24, 270.3), "US": (324.24, 360.0, 342.12)}
+    assert "resolve" not in spec  # 同一显式域,不需要 resolve
     assert "占比最大" in reading and "60.1%" in reading
 
 
@@ -99,7 +101,7 @@ def test_pie_ignores_extra_pct_column():
     spec, reading = build_chart("各市场销售额占比", cols, rows)
     arc = spec["layer"][0]
     assert arc["mark"]["type"] == "arc"
-    assert arc["encoding"]["theta"]["field"] == "sales"
+    assert arc["encoding"]["theta"]["field"] == "_start"
     # 小切片(USCA 3.3%)不标注的条件 + 本地算好的占比标签都在 spec 里
     cond = spec["layer"][1]["encoding"]["text"]["condition"]
     assert cond["test"] == "datum._pct >= 6"
