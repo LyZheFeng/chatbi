@@ -135,7 +135,9 @@ def test_consecutive_sql_failures_hit_cap_and_degrade(conn):
     r = _agent(conn, llm).run("连续打错")
     assert r.error and "连续 3 次执行失败" in r.error and "no such column" in r.error
     assert len([s for s in r.steps if s.tool == "execute_sql"]) == 3  # 上限即停,不烧满 8 步
-    assert r.stats == {"sql_attempts": 3, "sql_failures": 3, "reflections": 0}
+    assert {k: r.stats[k] for k in ("sql_attempts", "sql_failures", "reflections")} == {
+        "sql_attempts": 3, "sql_failures": 3, "reflections": 0}
+    assert r.stats["llm_tokens"] == 0  # FakeLLM 无用量属性,记 0
 
 
 def test_failure_streak_resets_after_success(conn):

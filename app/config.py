@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     max_sql_retries: int = 3      # execute_sql 连续失败上限,超过即优雅降级
     sql_timeout_s: float = 5.0    # 单条 SQL 执行超时(progress_handler 掐断算力攻击/失控查询)
     api_key: str = ""             # 非空即启用 API 鉴权(请求须带 X-API-Key 头);空 = 不鉴权
+    rate_limit_per_min: int = 0   # 每客户端每分钟请求数上限;0 = 不限流(进程内计数,单 worker 有效)
+    llm_max_concurrency: int = 8  # LLM 并发调用闸门(超过的在闸门外排队)
+    llm_gate_wait_s: float = 30.0 # 在闸门外最多等多久,超时按 LLM 繁忙失败(不占线程死等)
 
 
 @lru_cache(maxsize=1)

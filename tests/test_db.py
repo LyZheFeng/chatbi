@@ -79,6 +79,11 @@ def test_build_replaces_atomically_with_backup(db_path, tmp_path):
     second = build(csv, target)
     assert target.exists() and (tmp_path / "x.db.bak").exists()
     assert first["tables"] == second["tables"]  # 确定性注入,重建同结果
+
+    build(csv, target)  # 第三次:备份开始轮换出 .bak.1
+    assert (tmp_path / "x.db.bak.1").exists()
+    build(csv, target)  # 第四次:轮换到 .bak.2,更早的丢弃
+    assert (tmp_path / "x.db.bak.2").exists()
     bak = sqlite3.connect(f"file:{tmp_path / 'x.db.bak'}?mode=ro", uri=True)
     try:
         assert bak.execute("SELECT COUNT(*) FROM order_items").fetchone()[0] > 0

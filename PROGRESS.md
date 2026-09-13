@@ -73,6 +73,17 @@
 - 评审中**未采纳/缓办**:P1-7 结构化查询意图与语义校验(架构级改造,与 function calling 直出 SQL 的既有决策冲突,单独立项再议);P2-9/10/11(观测审计、schema 检索、图表增强)记路线图
 - 测试 71 例全绿(新增 LIMIT 误判、连接回收、鉴权 401、异常兜底、原子建库 5 例)
 
+## 外部评审二轮修复(2026-09-13,复评 P1;main 直推)
+
+- **CI 锁版本**:pip 先装 requirements.txt(验证声明自足)再装 requirements.lock(锁死版本防漂移)
+- **并发控制(LLM 闸门)**:全局 BoundedSemaphore(按容量共享,LLM 实例每请求新建)限制在途 LLM 调用 `llm_max_concurrency`(默认 8);闸门外排队 `llm_gate_wait_s`(默认 30s)超时抛 LLMBusy → API 层转"LLM 繁忙"降级,不占线程死等;README 补 `--workers 4` 多 worker 说明(限流计数进程内,多 worker 需网关/Redis)
+- **观测最小集**:每请求 `X-Request-Id` 响应头 + 结构化访问日志(方法/路径/状态/耗时);token 用量统计(LLM 累加 used_tokens → agent 汇总进 `stats.llm_tokens`,真实链路单题 ~3.9k)
+- **限流(可选)**:`rate_limit_per_min` 非 0 时按客户端 IP 固定窗口计数,超限 429(进程内,单 worker 有效)
+- **异常信息收敛**:对外只返回"服务内部错误,请稍后重试",完整异常堆栈 `logger.exception` 进服务端日志(不再泄漏异常类名)
+- **备份轮换**:建库备份从单份 .bak 滚动为 .bak/.bak.1/.bak.2(最近 3 份),连续误构建也有可恢复版本
+- 复评**仍缓办**:异步任务队列/Prometheus 指标(部署层);查询意图结构化层(架构级,P2-5 复现了首轮建议,维持单独立项判断);本地 .pytest_tmp 历史文件锁属环境清理问题,不在代码层修
+- 测试 76 例全绿(新增闸门超时/释放、token 累计与 stats 透传、request id+限流 429、通用错误文案、备份轮换 5 例);真实链路冒烟通过(占比题出饼图、llm_tokens 记账正常)
+
 ## 范围(按计划)
 
 Day 15-16 ✅ 数据+基础链路 → Day 17-18 ✅ 自愈循环(四组对比数字见 `eval/results.md`)→

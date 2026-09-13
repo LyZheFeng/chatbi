@@ -40,20 +40,23 @@
   禁 PRAGMA/ATTACH/EXPLAIN 等语句关键字与 load_extension/randomblob/pragma_* 等危险函数;
   ③执行超时(progress_handler 按秒掐断无界递归 CTE / 笛卡尔积一类算力攻击)+ 自动 LIMIT(LIMIT 子句
   同样按 token 判定,字符串/注释里的 'limit' 骗不过)+ cap 截断。
-- **生产化最小保护(外部评审修复)**:每请求连接 finally 回收;可选 API Key 鉴权
-  (`api_key` 配置非空即启用,请求带 `X-API-Key`);service 未预期异常兜底为结构化 error 不抛 500;
-  建库脚本原子替换(先写 .tmp 自检再替换,旧库自动备份 .bak);LLM 走 openai SDK 内建重试
-  (llm_max_retries 显式配置,连接错误/429/5xx 指数退避);依赖显式声明(含 pandas)并锁版本
-  (`requirements.lock`),CI 在 ubuntu/windows 全新环境装依赖跑测试。
+- **生产化最小保护(外部评审两轮修复)**:每请求连接 finally 回收;可选 API Key 鉴权
+  (`api_key` 配置非空即启用,请求带 `X-API-Key`);可选按 IP 固定窗口限流
+  (`rate_limit_per_min`,超限 429,进程内计数);每请求 `X-Request-Id` 响应头 + 结构化访问日志;
+  LLM 并发闸门(全局信号量 `llm_max_concurrency`,排队超时转"LLM 繁忙"降级,不占线程死等)+
+  token 用量统计(`stats.llm_tokens`,真实链路单题约 3.9k);service 未预期异常对外只给通用文案、
+  完整堆栈进服务端日志;建库脚本原子替换(先写 .tmp 自检再替换,旧库滚动备份 .bak/.bak.1/.bak.2);
+  LLM 走 openai SDK 内建重试(`llm_max_retries` 显式配置);依赖显式声明(含 pandas)并锁版本
+  (`requirements.lock`,CI 先验证 requirements 自足再用 lock 锁版本),CI 在 ubuntu/windows 双平台跑测试。
 - 纪律:所有 tool_call 参数过 pydantic 严格校验;表格数据一律来自本地执行
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
 - 接口:FastAPI `POST /ask`;界面:Streamlit(`app/ui.py`)。
-- 测试:`pytest tests` 71 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
-  FakeLLM 脚本驱动、图表选型/解读/脏数据约定、API 鉴权与异常兜底、DDL 注释↔数据一致性回归),
-  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`),不依赖系统 TEMP 权限。
-- 未做、留给部署层(见 PROGRESS 路线图):限流、异步队列、Prometheus 指标、熔断/fallback 模型、
-  结构化查询意图与语义校验、schema 按需检索。
+- 测试:`pytest tests` 76 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
+  FakeLLM 脚本驱动、LLM 并发闸门与 token 统计、图表选型/解读/脏数据约定、API 鉴权/限流/异常兜底、
+  DDL 注释↔数据一致性回归),不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
+- 未做、留给部署层(见 PROGRESS 路线图):分布式限流与 Prometheus 指标、异步任务队列/多 worker、
+  熔断/fallback 模型、结构化查询意图与语义校验、schema 按需检索。
 
 ## 界面
 
@@ -74,7 +77,8 @@ cp .env.example .env                # 内网 vLLM 配置
 
 # 3. 演示
 .venv/Scripts/python.exe -X utf8 scripts/demo_ask.py       # 命令行端到端
-.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000
+.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000          # 单 worker 演示
+.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000 --workers 4   # 多 worker(注意:限流计数是进程内的)
 .venv/Scripts/python.exe -X utf8 -m streamlit run app/ui.py
 ```
 

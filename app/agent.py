@@ -117,6 +117,14 @@ class ChatbiAgent:
 
     def run(self, question: str) -> AgentResult:
         state = AgentResult()
+        try:
+            self._run_loop(question, state)
+            return state
+        finally:
+            # token 用量汇总(FakeLLM 无此属性时记 0,不影响离线测试)
+            state.stats["llm_tokens"] = getattr(self.llm, "used_tokens", 0)
+
+    def _run_loop(self, question: str, state: AgentResult) -> None:
         messages: list = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": question},
@@ -138,13 +146,11 @@ class ChatbiAgent:
 
             messages.append(msg)  # 带 tool_calls 的 assistant 消息原样入列
             for tc in tool_calls:
-                done = self._execute(state, messages, tc)
-                if done:
-                    return state
+                if self._execute(state, messages, tc):
+                    return
 
         if state.error is None:
             state.error = f"达到工具调用步数上限({self.max_steps}),未能产出最终答案。"
-        return state
 
     def _execute(self, state: AgentResult, messages: list, tc) -> bool:
         """执行单个 tool_call。返回 True 表示循环应结束(final_answer 已给出或已降级)。"""

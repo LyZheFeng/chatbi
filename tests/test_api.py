@@ -61,10 +61,31 @@ def test_api_key_auth_when_configured(client, monkeypatch):
 
 
 def test_unexpected_exception_degrades_not_500(client, monkeypatch):
-    """评审 P0-4:service 未预期异常不抛 500,降级为结构化 error 响应。"""
+    """评审复评 P1-4:未预期异常不抛 500,对外只给通用文案(不泄漏异常类名),堆栈进服务端日志。"""
     def boom(question: str):
         raise RuntimeError("意外")
 
     monkeypatch.setattr(api, "get_service", lambda: type("S", (), {"ask": staticmethod(boom)})())
     body = client.post("/ask", json={"question": "多少客户"}).json()
-    assert body["error"].startswith("内部错误:RuntimeError") and body["rows"] == []
+    assert body["error"] == "服务内部错误,请稍后重试。"
+    assert "RuntimeError" not in body["error"] and "意外" not in body["error"]
+
+
+def test_request_id_header_and_rate_limit(client, monkeypatch):
+    """复评 P1-3:响应带 X-Request-Id;rate_limit_per_min 非 0 时按 IP 固定窗口 429。"""
+    from app.config import get_settings
+
+    r = client.get("/health")
+    assert len(r.headers.get("x-request-id", "")) == 8  # 未启用限流时也带 request id
+
+    monkeypatch.setenv("RATE_LIMIT_PER_MIN", "2")
+    get_settings.cache_clear()
+    try:
+        assert client.post("/ask", json={"question": "多少客户"}).status_code == 200
+        assert client.post("/ask", json={"question": "多少客户"}).status_code == 200
+        r = client.post("/ask", json={"question": "多少客户"})
+        assert r.status_code == 429 and r.json()["detail"].startswith("请求过于频繁")
+    finally:
+        monkeypatch.delenv("RATE_LIMIT_PER_MIN")
+        get_settings.cache_clear()
+        api._RATE_STATE.clear()

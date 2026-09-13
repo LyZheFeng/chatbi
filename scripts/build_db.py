@@ -24,7 +24,7 @@ Schema 管理(Day 19):
     5. customers.postal_code:源数据 80% 本来就空(美国以外无邮编),原样保留
 
 用法:python scripts/build_db.py [csv_path] [db_path]
-原子建库:先写 <db>.tmp,自检(无空表)通过后替换正式库;旧库自动备份为 <db>.bak。
+原子建库:先写 <db>.tmp,自检(无空表)通过后替换正式库;旧库滚动备份为 <db>.bak/.bak.1/.bak.2(共 3 份)。
 """
 
 from __future__ import annotations
@@ -179,8 +179,17 @@ def build(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> dict:
     finally:
         conn.close()
 
+    # 备份轮换:保留最近 3 份(<db>.bak 为上一版,.bak.1/.bak.2 更早),连续误构建也留有可恢复版本
+    stem = db_path.parent / db_path.name
+    bak, bak1, bak2 = (Path(f"{stem}{ext}") for ext in (".bak", ".bak.1", ".bak.2"))
+    if bak2.exists():
+        bak2.unlink()
+    if bak1.exists():
+        bak1.replace(bak2)
+    if bak.exists():
+        bak.replace(bak1)
     if db_path.exists():
-        db_path.replace(db_path.with_suffix(db_path.suffix + ".bak"))
+        db_path.replace(bak)
     tmp_path.replace(db_path)
 
     return {"tables": counts, "dirty": dirty}

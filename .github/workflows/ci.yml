@@ -17,7 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: 全新环境安装依赖(评审 P0-1:验证 requirements.txt 自足)
-        run: pip install -r requirements.txt
+      - name: 安装依赖(先验证 requirements.txt 自足,再用 lock 锁版本防漂移)
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements.lock
       - name: 测试(离线,FakeLLM 驱动,不需要 .env 与内网)
         run: python -X utf8 -m pytest tests -q
