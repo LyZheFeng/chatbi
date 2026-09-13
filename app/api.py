@@ -30,6 +30,8 @@ app = FastAPI(title="chatbi", version="0.1.0")
 # 限流状态:ip -> (窗口起点 epoch 秒, 计数)。进程内字典,单 worker 有效
 _RATE_STATE: dict[str, tuple[int, int]] = {}
 _RATE_LOCK = threading.Lock()
+_RATE_MAX_ENTRIES = 10_000  # 字典规模上限,超过即惰性清扫过期窗口(防伪造来源撑爆内存)
+_RATE_WINDOW_S = 60
 
 
 def _require_key(x_api_key: str | None = Header(default=None)) -> None:
@@ -48,8 +50,11 @@ async def _observe(request, call_next):
     if limit and request.url.path == "/ask" and request.client:
         now = int(time.time())
         with _RATE_LOCK:
+            if len(_RATE_STATE) >= _RATE_MAX_ENTRIES:  # 惰性清扫:过期窗口即伪 IP 遗留
+                for ip in [ip for ip, (s, _) in _RATE_STATE.items() if now - s >= _RATE_WINDOW_S]:
+                    _RATE_STATE.pop(ip, None)
             start, count = _RATE_STATE.get(request.client.host, (now, 0))
-            if now - start >= 60:
+            if now - start >= _RATE_WINDOW_S:
                 start, count = now, 0
             _RATE_STATE[request.client.host] = (start, count + 1)
             over = count + 1 > limit

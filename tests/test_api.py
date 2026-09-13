@@ -89,3 +89,21 @@ def test_request_id_header_and_rate_limit(client, monkeypatch):
         monkeypatch.delenv("RATE_LIMIT_PER_MIN")
         get_settings.cache_clear()
         api._RATE_STATE.clear()
+
+
+def test_rate_state_prunes_expired_entries(client, monkeypatch):
+    """评审三轮 P1-1:限流字典到达规模上限时惰性清扫过期窗口,伪造来源撑不爆内存。"""
+    from app.config import get_settings
+
+    monkeypatch.setattr(api, "_RATE_MAX_ENTRIES", 3)
+    api._RATE_STATE.update({f"fake-{i}": (int(__import__("time").time()) - 3600, 1) for i in range(3)})
+    monkeypatch.setenv("RATE_LIMIT_PER_MIN", "10")
+    get_settings.cache_clear()
+    try:
+        assert client.post("/ask", json={"question": "多少客户"}).status_code == 200
+        assert all(ip.startswith("fake-") is False for ip in api._RATE_STATE)  # 过期的伪 IP 已被清掉
+        assert len(api._RATE_STATE) == 1  # 只剩当前客户端
+    finally:
+        monkeypatch.delenv("RATE_LIMIT_PER_MIN")
+        get_settings.cache_clear()
+        api._RATE_STATE.clear()
