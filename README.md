@@ -1,5 +1,7 @@
 # chatbi · 数据分析 Agent(项目 2)
 
+[![CI](https://github.com/LyZheFeng/chatbi/actions/workflows/ci.yml/badge.svg)](https://github.com/LyZheFeng/chatbi/actions/workflows/ci.yml)
+
 中文自然语言 → 生成 SQL → 自愈执行(报错回传/结果反思)→ 图表 + 解读。
 备考项目 2,对应 `../agent-internship-plan.md` Week 3(Day 15~21)。
 
@@ -36,13 +38,22 @@
 - **安全加固(Day 21)**:SQL 护栏三层——①连接 `mode=ro` 物理只读(最后防线);②token 级白名单:
   词法扫描让字符串/引号标识符/注释各自成 token,首 token 必须 SELECT/WITH、禁分号拼多条、
   禁 PRAGMA/ATTACH/EXPLAIN 等语句关键字与 load_extension/randomblob/pragma_* 等危险函数;
-  ③执行超时(progress_handler 按秒掐断无界递归 CTE / 笛卡尔积一类算力攻击)+ 自动 LIMIT + cap 截断。
+  ③执行超时(progress_handler 按秒掐断无界递归 CTE / 笛卡尔积一类算力攻击)+ 自动 LIMIT(LIMIT 子句
+  同样按 token 判定,字符串/注释里的 'limit' 骗不过)+ cap 截断。
+- **生产化最小保护(外部评审修复)**:每请求连接 finally 回收;可选 API Key 鉴权
+  (`api_key` 配置非空即启用,请求带 `X-API-Key`);service 未预期异常兜底为结构化 error 不抛 500;
+  建库脚本原子替换(先写 .tmp 自检再替换,旧库自动备份 .bak);LLM 走 openai SDK 内建重试
+  (llm_max_retries 显式配置,连接错误/429/5xx 指数退避);依赖显式声明(含 pandas)并锁版本
+  (`requirements.lock`),CI 在 ubuntu/windows 全新环境装依赖跑测试。
 - 纪律:所有 tool_call 参数过 pydantic 严格校验;表格数据一律来自本地执行
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
 - 接口:FastAPI `POST /ask`;界面:Streamlit(`app/ui.py`)。
-- 测试:`pytest tests` 66 例(工具校验、SQL 护栏 token 白名单/超时、agent 循环与自愈逻辑 FakeLLM
-  脚本驱动、图表选型/解读/脏数据约定、API、DDL 注释↔数据一致性回归),不依赖网络。
+- 测试:`pytest tests` 71 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
+  FakeLLM 脚本驱动、图表选型/解读/脏数据约定、API 鉴权与异常兜底、DDL 注释↔数据一致性回归),
+  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`),不依赖系统 TEMP 权限。
+- 未做、留给部署层(见 PROGRESS 路线图):限流、异步队列、Prometheus 指标、熔断/fallback 模型、
+  结构化查询意图与语义校验、schema 按需检索。
 
 ## 界面
 
@@ -55,7 +66,7 @@
 ```bash
 # 1. 环境(Windows,Python 3.13)
 /d/python/python.exe -m venv .venv
-.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip install -r requirements.txt   # 可复现安装用 requirements.lock
 cp .env.example .env                # 内网 vLLM 配置
 
 # 2. 建库(源数据放 data/raw/,来源见 scripts/build_db.py 头注释)

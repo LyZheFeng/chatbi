@@ -21,7 +21,10 @@ class ChatbiService:
     def ask(self, question: str) -> AskResponse:
         t0 = time.perf_counter()
         agent = self.agent_factory()
-        r = agent.run(question)
+        try:
+            r = agent.run(question)
+        finally:
+            agent.conn.close()  # 每请求一个只读连接,跑完即回收,长期运行不积累句柄
         # 图表与解读只在拿到最终结果时生成:纯呈现层,选型和数字
         # 全部来自已执行的 columns/rows,不影响 agent 与评估口径
         chart_spec, chart_reading = (None, "")

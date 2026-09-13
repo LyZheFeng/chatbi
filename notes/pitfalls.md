@@ -43,3 +43,9 @@
 - **中位数提示要写到"返回形态"** → 第一版只写"偶数个取中间两值的平均",模型确实取到了中间两值,但返回两行不取 AVG;补上"最终只返回一个数值"才一枪修复——口径提示除了算法规格,还要规定输出的形状。
 - **token 级白名单的关键在词法分类,不在关键字表** → 正则 `^(select|with)` 时代的焦虑(前导注释/字面量伪装)在把字符串/引号标识符/注释各自切成 token 后自然消失:`SELECT 'DROP TABLE'` 不误杀、`WITH x AS (SELECT 1) DELETE` 拦得住;先 tokenizer 后关键字表,顺序不能反。
 - **只读连接挡不住算力攻击** → `mode=ro` 让所有写语句物理失败,但无界 RECURSIVE CTE 能把只读查询跑成资源耗尽 → `set_progress_handler`(虚拟机指令回调 + 单调钟期限)按秒掐断,测试用 `WITH RECURSIVE c(x) AS (... x+1 ...)` 无限递归验证 <3s 中断。
+
+## 2026-09-13 · 外部评审修复(Codex P0/P1)
+
+- **传递依赖掩盖直接依赖** → ui.py/build_db.py 直接 `import pandas`,却因 streamlit 传递安装而从未暴露;新环境按 README 装依赖才可能炸 → 规则:import 了什么就声明什么,`pip freeze` 锁版本 + CI 全新环境安装测试兜底。
+- **对 SQL 的语义判断不能走正则** → `\blimit\b` 正则被 `SELECT 'limit'` 和 `-- limit` 骗过,跳过自动行数上限(Day 21 才写的 token 白名单自己就留着这个正则尾巴)→ 既然词法 tokenizer 已经把字符串/注释切成惰性 token,LIMIT 判定就该在同一处产出;护栏类逻辑要一次词法分析、多处消费,别正则和 token 两套并存。
+- **每请求资源的生命周期归编排层管** → agent 持连接、service 造 agent,谁都不关 → 连接泄漏在长跑 API 上积累;finally 关闭写在 service.ask(agent 是它的局部变量,生命周期清晰),测试直接断言"ask 返回后连接不可再执行"。

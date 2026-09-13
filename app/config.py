@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     llm_base_url: str
     llm_api_key: str = "1234"
     llm_model: str
+    llm_max_retries: int = 3  # openai SDK 内建重试次数(连接错误/429/5xx,指数退避)
 
     db_path: str = str(ROOT / "data" / "chatbi.db")
     max_tool_steps: int = 8   # agent 循环上限(所有工具调用总次数)
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     self_heal: bool = True        # 自愈循环开关(错误回传重试 + 结果反思);off = 首错即降级
     max_sql_retries: int = 3      # execute_sql 连续失败上限,超过即优雅降级
     sql_timeout_s: float = 5.0    # 单条 SQL 执行超时(progress_handler 掐断算力攻击/失控查询)
+    api_key: str = ""             # 非空即启用 API 鉴权(请求须带 X-API-Key 头);空 = 不鉴权
 
 
 @lru_cache(maxsize=1)

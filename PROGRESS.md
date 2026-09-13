@@ -61,6 +61,18 @@
 - **四组评估(数字见 `eval/results.md`)**:自然/自愈开 **50/50=100.0%**(平均 5722ms)、自然/自愈关 50/50=100.0%、注入⚡/自愈关 0/50 全降级(不编造)、注入⚡/自愈开 **50/50=100.0% 全恢复**(vs Day 17-18 的 88%;归因:Day 19 消掉枚举探查步数后,注入+重试的 8 步预算不再紧张)。出图率 24/50:不出图 26 题=17 单值答案+4 行号列表+4 单行多列+1 超 30 类国家表,无"该画没画";图型 bar 19 / line 5
 - 测试 66 例全绿(新增 token 白名单绕过/误杀、超时掐断 3 例);README/PROGRESS/pitfalls 同步,tag `v0.1-chatbi` 已打并推送
 
+## 外部评审修复(2026-09-13,Codex 评审 P0/P1;v0.1 之后、main 直推)
+
+- **P0-1 依赖**:`pandas` 由 streamlit 传递安装掩盖了未声明(ui/build_db 直接 import)→ 显式入 requirements.txt;`pip freeze` 出 `requirements.lock` 供可复现安装;新增 CI(ubuntu+windows 全新环境装 requirements.txt 跑离线测试)兜住"装不上"这类问题
+- **P0-2 连接泄漏**:service.ask 每请求 connect_ro 但从不关闭 → finally 关闭(测试断言 ask 后连接不可再执行)
+- **P0-3 LIMIT 误判**:`_HAS_LIMIT` 正则会被 `SELECT 'limit'` / `-- limit` 骗过从而跳过自动行数上限 → LIMIT 子句改由 `_guard_sql` 的词法 token 判定(字符串/引号标识符/注释里的不算),与白名单共用同一个 tokenizer
+- **P0-4 API 保护(最小集)**:可选 API Key 鉴权(`api_key` 非空即启用,缺/错 `X-API-Key` 一律 401);service 未预期异常兜底为结构化 error(不抛 500,与优雅降级同口径)。限流/异步队列/Prometheus/熔断属部署层,记路线图
+- **P1-5 测试环境**:pytest.ini `--basetemp=.pytest_tmp` 把临时目录固定在仓库内(评审环境 Windows TEMP 权限曾致 44 例 setup 失败);.gitignore 排除
+- **P1-6 LLM 重试**:openai SDK 本就内建连接错误/429/5xx 指数退避重试 → 显式化为 `llm_max_retries`(默认 3)配置并传入;熔断/fallback 不做
+- **P1-8 建库破坏性**:`unlink()` 直接删旧库 → 先写 `<db>.tmp`、自检无空表后 `replace` 原子替换,旧库自动备份 `.bak`;真实数据重建验证行数一致
+- 评审中**未采纳/缓办**:P1-7 结构化查询意图与语义校验(架构级改造,与 function calling 直出 SQL 的既有决策冲突,单独立项再议);P2-9/10/11(观测审计、schema 检索、图表增强)记路线图
+- 测试 71 例全绿(新增 LIMIT 误判、连接回收、鉴权 401、异常兜底、原子建库 5 例)
+
 ## 范围(按计划)
 
 Day 15-16 ✅ 数据+基础链路 → Day 17-18 ✅ 自愈循环(四组对比数字见 `eval/results.md`)→

@@ -1,4 +1,8 @@
-"""内网 vLLM(OpenAI 兼容)薄封装:固定 temperature=0、关闭思维链。"""
+"""内网 vLLM(OpenAI 兼容)薄封装:固定 temperature=0、关闭思维链。
+
+网络健壮性走 openai SDK 内建重试(max_retries,连接错误/429/5xx 自动指数退避),
+次数由 Settings.llm_max_retries 显式配置;熔断/fallback 模型属部署层,不在 v0.1 范围。
+"""
 
 from __future__ import annotations
 
@@ -19,7 +23,8 @@ class LLM:
 
         s = get_settings()
         return LLM(
-            OpenAI(base_url=s.llm_base_url, api_key=s.llm_api_key, timeout=90),
+            OpenAI(base_url=s.llm_base_url, api_key=s.llm_api_key, timeout=90,
+                   max_retries=s.llm_max_retries),
             s.llm_model,
         )
 

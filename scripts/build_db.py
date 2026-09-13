@@ -24,6 +24,7 @@ Schema 管理(Day 19):
     5. customers.postal_code:源数据 80% 本来就空(美国以外无邮编),原样保留
 
 用法:python scripts/build_db.py [csv_path] [db_path]
+原子建库:先写 <db>.tmp,自检(无空表)通过后替换正式库;旧库自动备份为 <db>.bak。
 """
 
 from __future__ import annotations
@@ -149,10 +150,13 @@ def build(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> dict:
     dirty = _inject_dirty(geography, customers, orders, order_items)
     ddl = _render_ddl(geography, customers, products, orders, order_items)
 
+    # 原子建库(评审 P1-8):先写 .tmp,自检通过后替换正式库,旧库留一份 .bak——
+    # 构建中途失败(磁盘满/数据坏)不会把现有可用库变成半成品
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    if db_path.exists():
-        db_path.unlink()
-    conn = sqlite3.connect(db_path)
+    tmp_path = db_path.with_suffix(db_path.suffix + ".tmp")
+    if tmp_path.exists():
+        tmp_path.unlink()
+    conn = sqlite3.connect(tmp_path)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.executescript(ddl)
@@ -170,8 +174,14 @@ def build(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> dict:
             t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
             for t in ["geography", "customers", "products", "orders", "order_items"]
         }
+        if any(n == 0 for n in counts.values()):
+            raise ValueError(f"建库自检失败,存在空表:{counts}")
     finally:
         conn.close()
+
+    if db_path.exists():
+        db_path.replace(db_path.with_suffix(db_path.suffix + ".bak"))
+    tmp_path.replace(db_path)
 
     return {"tables": counts, "dirty": dirty}
 

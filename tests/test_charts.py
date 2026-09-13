@@ -229,3 +229,23 @@ def test_no_chart_on_degraded_answer(conn):
     resp = svc.ask("随便问")
     assert resp.error is not None
     assert resp.chart_spec is None and resp.chart_reading == ""
+
+
+def test_service_closes_connection_after_ask(conn):
+    """评审 P0-2:每请求一个连接,ask 返回后必须已关闭,长期运行不积累句柄。"""
+    import pytest as _pytest
+
+    from tests.test_agent import FakeLLM, _msg, _tc
+
+    from app.agent import ChatbiAgent
+    from app.service import ChatbiService
+
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM orders")]),
+        _msg([_tc("final_answer", summary="订单共 7 张。")]),
+    ])
+    holder = {}
+    svc = ChatbiService(lambda: holder.setdefault("agent", ChatbiAgent(llm, conn, cap=50, auto_limit=10)) or holder["agent"])
+    svc.ask("多少张订单")
+    with _pytest.raises(Exception):
+        holder["agent"].conn.execute("SELECT 1")  # 已关闭的连接不能再执行

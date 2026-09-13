@@ -1,4 +1,6 @@
-"""db.py:只读连接、schema 导出、SELECT 护栏。"""
+"""db.py:只读连接、schema 导出、SELECT 护栏、原子建库。"""
+
+import sqlite3
 
 import pytest
 
@@ -50,6 +52,38 @@ def test_run_select_auto_limit(conn):
     r = run_select(conn, "SELECT row_id FROM order_items", auto_limit=5)
     assert r.row_count == 5
     assert "LIMIT 5" in r.executed_sql
+
+
+def test_auto_limit_not_fooled_by_string_or_comment(conn):
+    """评审 P0-3:字符串/注释里出现 'limit' 不构成真 LIMIT 子句,不能绕过自动行数上限。"""
+    r = run_select(conn, "SELECT 'limit' AS s", auto_limit=100)
+    assert "LIMIT 100" in r.executed_sql
+    r = run_select(conn, "SELECT 1 AS v -- limit", auto_limit=100)
+    assert "LIMIT 100" in r.executed_sql
+    r = run_select(conn, 'SELECT "limit" AS v FROM orders LIMIT 3', auto_limit=100)
+    assert r.row_count == 3 and "LIMIT 100" not in r.executed_sql  # 引号标识符同理,真 LIMIT 仍生效
+
+
+def test_build_replaces_atomically_with_backup(db_path, tmp_path):
+    """评审 P1-8:重建走 .tmp 原子替换,旧库自动备份 .bak,正式库始终完整可用。"""
+    from scripts.build_db import build
+    from tests.conftest import MINI_CSV
+
+    csv = tmp_path / "mini.csv"
+    csv.write_text(MINI_CSV, encoding="utf-8")
+    target = tmp_path / "x.db"
+
+    first = build(csv, target)
+    assert target.exists() and not (tmp_path / "x.db.bak").exists()
+
+    second = build(csv, target)
+    assert target.exists() and (tmp_path / "x.db.bak").exists()
+    assert first["tables"] == second["tables"]  # 确定性注入,重建同结果
+    bak = sqlite3.connect(f"file:{tmp_path / 'x.db.bak'}?mode=ro", uri=True)
+    try:
+        assert bak.execute("SELECT COUNT(*) FROM order_items").fetchone()[0] > 0
+    finally:
+        bak.close()
 
 
 def test_run_select_respects_written_limit(conn):

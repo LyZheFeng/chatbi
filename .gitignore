@@ -11,3 +11,6 @@ venv/
 *.db
 *.sqlite*
 data/raw/
+
+# pytest 本地临时目录(每次运行会被清空重建)
+.pytest_tmp/

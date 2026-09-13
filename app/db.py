@@ -47,8 +47,12 @@ _FORBIDDEN_FUNCS = {
 }
 
 
-def _guard_sql(sql: str) -> str:
-    """词法校验并返回去掉结尾分号/注释的干净 SQL;不合法抛 ValueError(消息回传模型自愈)。"""
+def _guard_sql(sql: str) -> tuple[str, bool]:
+    """词法校验,返回 (去掉结尾分号/注释的干净 SQL, 是否含真正的 LIMIT 子句)。
+
+    不合法抛 ValueError(消息回传模型自愈)。LIMIT 也按词法 token 判定:
+    字符串字面量或注释里出现的 'limit' 不算,不会被用来绕过自动行数上限。
+    """
     toks = [(m.group(0), m.span()) for m in _TOKEN_RE.finditer(sql)]
 
     def meaningful():
@@ -66,20 +70,20 @@ def _guard_sql(sql: str) -> str:
     if any(t == ";" for t, _ in meat):
         raise ValueError("不允许一次执行多条语句")
 
+    has_limit = False
     for i, (t, _) in enumerate(meat):
         if not _WORD_RE.fullmatch(t):
             continue
         up = t.upper()
+        if up == "LIMIT":
+            has_limit = True
         if up in _FORBIDDEN_KEYWORDS:
             raise ValueError(f"只读护栏:禁止 {up}")
         if up in _FORBIDDEN_FUNCS or up.startswith("PRAGMA_"):
             nxt = meat[i + 1][0] if i + 1 < len(meat) else ""
             if nxt == "(" or up.startswith("PRAGMA_"):
                 raise ValueError(f"只读护栏:禁止函数 {up}")
-    return sql[:cut].strip()
-
-
-_HAS_LIMIT = re.compile(r"\blimit\b", re.IGNORECASE)
+    return sql[:cut].strip(), has_limit
 
 
 def connect_ro(db_path: str | Path) -> sqlite3.Connection:
@@ -123,8 +127,8 @@ def run_select(
     timeout_s 用 progress_handler 实现:虚拟机每跑 N 条指令回调一次,超过期限返回非零
     触发 SQLITE_INTERRUPT,防 RECURSIVE CTE / 笛卡尔积一类资源耗尽(连接只读挡不住算力攻击)。
     """
-    guarded = _guard_sql(sql.strip())
-    executed = guarded if _HAS_LIMIT.search(guarded) else f"{guarded}\nLIMIT {auto_limit}"
+    guarded, has_limit = _guard_sql(sql.strip())
+    executed = guarded if has_limit else f"{guarded}\nLIMIT {auto_limit}"
     deadline = time.monotonic() + timeout_s
 
     def _abort() -> int:

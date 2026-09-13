@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]  # 开发环境是 Windows,双平台各跑一份
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: 全新环境安装依赖(评审 P0-1:验证 requirements.txt 自足)
+        run: pip install -r requirements.txt
+      - name: 测试(离线,FakeLLM 驱动,不需要 .env 与内网)
+        run: python -X utf8 -m pytest tests -q
