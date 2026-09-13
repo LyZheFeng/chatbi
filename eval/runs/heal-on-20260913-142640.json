@@ -1,0 +1,57 @@
+{
+ "summary": {
+  "heal": "on",
+  "date": "2026-09-13 14:26",
+  "total": 1,
+  "matched": 1,
+  "accuracy": 1.0,
+  "degraded": 0,
+  "healed_and_matched": 0,
+  "avg_latency_ms": 6899
+ },
+ "records": [
+  {
+   "id": "q21",
+   "tags": "时间/聚合/方言陷阱",
+   "question": "2013 和 2014 两年各自的总销售额是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6899,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT strftime('%Y', o.order_date) AS year, SUM(oi.sales) AS total_sales\nFROM order_items oi\nJOIN orders o ON oi.order_id = o.order_id\nWHERE strftime('%Y', o.order_date) IN ('2013','2014')\nGROUP BY strftime('%Y', o.order_date)\nORDER BY year;",
+   "columns": [
+    "year",
+    "total_sales"
+   ],
+   "rows": [
+    [
+     "2013",
+     352570.33
+    ],
+    [
+     "2014",
+     455363.92
+    ]
+   ],
+   "gold_rows": [
+    [
+     "2013",
+     352570.33
+    ],
+    [
+     "2014",
+     455363.92
+    ]
+   ]
+  }
+ ]
+}

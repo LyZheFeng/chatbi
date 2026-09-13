@@ -71,7 +71,8 @@ QUESTIONS: list[dict] = [
               "WHERE o.order_date >= '2014-01-01' AND o.order_date < '2015-01-01' GROUP BY 1"),
     dict(id="q21", tags="时间/聚合/方言陷阱", question="2013 和 2014 两年各自的总销售额是多少?",
          gold="SELECT strftime('%Y', o.order_date), SUM(i.sales) FROM order_items i "
-              "JOIN orders o ON i.order_id = o.order_id GROUP BY 1"),
+              "JOIN orders o ON i.order_id = o.order_id "
+              "WHERE o.order_date >= '2013-01-01' AND o.order_date < '2015-01-01' GROUP BY 1"),
     dict(id="q22", tags="多表/聚合/排序", question="按商品汇总,利润率(总利润除以总销售额)最高的 5 个商品是哪些?",
          gold="SELECT p.product_id, SUM(i.profit) * 1.0 / SUM(i.sales) FROM order_items i "
               "JOIN products p ON p.product_id = i.product_id GROUP BY p.product_id "

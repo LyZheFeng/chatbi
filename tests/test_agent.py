@@ -36,16 +36,16 @@ def test_happy_path(conn):
     llm = FakeLLM([
         _msg([_tc("get_schema")]),
         _msg([_tc("execute_sql", sql="SELECT market, SUM(sales) AS total FROM order_items i JOIN orders o ON i.order_id=o.order_id JOIN customers c ON o.customer_id=c.customer_id JOIN geography g ON c.country=g.country AND c.region=g.region GROUP BY market")]),
-        _msg([_tc("final_answer", summary="EU 市场销售额约 1815 美元,居首(USCA 因脏数据关联缺失未计入)。", sql="SELECT market, SUM(sales) FROM ... GROUP BY market")]),
+        _msg([_tc("final_answer", summary="Europe 市场销售额约 1815 美元,居首(USCA 因脏数据关联缺失未计入)。", sql="SELECT market, SUM(sales) FROM ... GROUP BY market")]),
     ])
     r = _agent(conn, llm).run("各市场总销售额")
     assert r.error is None
-    assert r.summary.startswith("EU")
+    assert r.summary.startswith("Europe")
     assert r.sql == "SELECT market, SUM(sales) FROM ... GROUP BY market"  # final_answer 自报优先
     # mini 库的脏数据注入把 2 个美国客户 region 置空 → USCA 在 geography join 中丢失,
-    # 只剩 APAC/EU —— 表格始终来自本地执行,模型嘴说的数字进不了 rows
+    # 只剩 Asia Pacific/Europe —— 表格始终来自本地执行,模型嘴说的数字进不了 rows
     assert r.result.row_count == 2
-    assert [row[0] for row in r.result.rows] == ["APAC", "EU"]
+    assert [row[0] for row in r.result.rows] == ["Asia Pacific", "Europe"]
     assert r.result.columns == ["market", "total"]
     assert [s.ok for s in r.steps] == [True, True, True]
     # 前两轮的工具结果都以 role=tool 回传了(final_answer 自己的结果在循环结束后才入列)

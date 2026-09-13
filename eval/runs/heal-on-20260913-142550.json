@@ -1,0 +1,1424 @@
+{
+ "summary": {
+  "heal": "on",
+  "date": "2026-09-13 14:25",
+  "total": 25,
+  "matched": 23,
+  "accuracy": 0.92,
+  "degraded": 0,
+  "healed_and_matched": 0,
+  "avg_latency_ms": 6074
+ },
+ "records": [
+  {
+   "id": "q01",
+   "tags": "单表/计数",
+   "question": "订单明细一共有多少行?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 3554,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS cnt FROM order_items",
+   "columns": [
+    "cnt"
+   ],
+   "rows": [
+    [
+     1000
+    ]
+   ],
+   "gold_rows": [
+    [
+     1000
+    ]
+   ]
+  },
+  {
+   "id": "q02",
+   "tags": "单表/计数",
+   "question": "数据库里一共有多少个客户?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 2128,
+   "steps": [
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS customer_count FROM customers",
+   "columns": [
+    "customer_count"
+   ],
+   "rows": [
+    [
+     800
+    ]
+   ],
+   "gold_rows": [
+    [
+     800
+    ]
+   ]
+  },
+  {
+   "id": "q03",
+   "tags": "单表/时间",
+   "question": "2014 年一共下了多少张订单?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 3603,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS order_count FROM orders WHERE order_date LIKE '2014-%'",
+   "columns": [
+    "order_count"
+   ],
+   "rows": [
+    [
+     222
+    ]
+   ],
+   "gold_rows": [
+    [
+     222
+    ]
+   ]
+  },
+  {
+   "id": "q04",
+   "tags": "多表/聚合/排序",
+   "question": "2014 年销售额最高的 5 个国家是哪些?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 7404,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT c.country, SUM(oi.sales) AS total_sales\nFROM order_items oi\nJOIN orders o ON oi.order_id = o.order_id\nJOIN customers c ON o.customer_id = c.customer_id\nWHERE o.order_date >= '2014-01-01' AND o.order_date < '2015-01-01'\nGROUP BY c.country\nORDER BY total_sales DESC\nLIMIT 5;",
+   "columns": [
+    "country",
+    "total_sales"
+   ],
+   "rows": [
+    [
+     "Australia",
+     53303.4
+    ],
+    [
+     "China",
+     47858.51
+    ],
+    [
+     "France",
+     40867.06
+    ],
+    [
+     "India",
+     25149.3
+    ],
+    [
+     "Spain",
+     21021.39
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Australia",
+     53303.4
+    ],
+    [
+     "China",
+     47858.51
+    ],
+    [
+     "France",
+     40867.06
+    ],
+    [
+     "India",
+     25149.3
+    ],
+    [
+     "Spain",
+     21021.39
+    ]
+   ]
+  },
+  {
+   "id": "q05",
+   "tags": "多表/聚合",
+   "question": "三个商品大类各自的销售额和总利润是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6766,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT p.category,\n       ROUND(SUM(oi.sales), 2) AS total_sales,\n       ROUND(SUM(oi.profit), 2) AS total_profit\nFROM order_items oi\nJOIN products p ON oi.product_id = p.product_id\nGROUP BY p.category\nORDER BY total_sales DESC;",
+   "columns": [
+    "category",
+    "total_sales",
+    "total_profit"
+   ],
+   "rows": [
+    [
+     "Technology",
+     756983.02,
+     145068.68
+    ],
+    [
+     "Furniture",
+     598238.22,
+     82188.95
+    ],
+    [
+     "Office Supplies",
+     352496.14,
+     61662.81
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Furniture",
+     598238.22,
+     82188.95
+    ],
+    [
+     "Office Supplies",
+     352496.14,
+     61662.81
+    ],
+    [
+     "Technology",
+     756983.02,
+     145068.68
+    ]
+   ]
+  },
+  {
+   "id": "q06",
+   "tags": "多表/聚合/时间/枚举陷阱",
+   "question": "亚太市场按月的销售额趋势是怎样的?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 9996,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT strftime('%Y-%m', o.order_date) AS month,\n       ROUND(SUM(oi.sales), 2) AS sales\nFROM order_items oi\nJOIN orders o ON o.order_id = oi.order_id\nJOIN customers c ON c.customer_id = o.customer_id\nJOIN geography g ON g.country = c.country AND g.region = c.region\nWHERE g.market = 'Asia Pacific'\nGROUP BY month\nORDER BY month;",
+   "columns": [
+    "month",
+    "sales"
+   ],
+   "rows": [
+    [
+     "2012-01",
+     5048.6
+    ],
+    [
+     "2012-02",
+     11401.38
+    ],
+    [
+     "2012-03",
+     5188.86
+    ],
+    [
+     "2012-04",
+     2896.24
+    ],
+    [
+     "2012-05",
+     13164.17
+    ],
+    [
+     "2012-06",
+     13043.91
+    ],
+    [
+     "2012-07",
+     2555.64
+    ],
+    [
+     "2012-08",
+     11187.67
+    ],
+    [
+     "2012-09",
+     5577.61
+    ],
+    [
+     "2012-10",
+     14255.06
+    ],
+    [
+     "2012-11",
+     27558.94
+    ],
+    [
+     "2012-12",
+     21316.58
+    ],
+    [
+     "2013-01",
+     8885.38
+    ],
+    [
+     "2013-02",
+     15649.99
+    ],
+    [
+     "2013-04",
+     14001.72
+    ],
+    [
+     "2013-05",
+     20073.89
+    ],
+    [
+     "2013-06",
+     12714.76
+    ],
+    [
+     "2013-07",
+     3454.56
+    ],
+    [
+     "2013-08",
+     35991.19
+    ],
+    [
+     "2013-09",
+     6871.81
+    ]
+   ],
+   "gold_rows": [
+    [
+     "2012-01",
+     5048.6
+    ],
+    [
+     "2012-02",
+     11401.380000000001
+    ],
+    [
+     "2012-03",
+     5188.860000000001
+    ],
+    [
+     "2012-04",
+     2896.24
+    ],
+    [
+     "2012-05",
+     13164.17
+    ],
+    [
+     "2012-06",
+     13043.91
+    ],
+    [
+     "2012-07",
+     2555.64
+    ],
+    [
+     "2012-08",
+     11187.67
+    ],
+    [
+     "2012-09",
+     5577.610000000001
+    ],
+    [
+     "2012-10",
+     14255.06
+    ],
+    [
+     "2012-11",
+     27558.94
+    ],
+    [
+     "2012-12",
+     21316.579999999998
+    ],
+    [
+     "2013-01",
+     8885.38
+    ],
+    [
+     "2013-02",
+     15649.99
+    ],
+    [
+     "2013-04",
+     14001.72
+    ],
+    [
+     "2013-05",
+     20073.89
+    ],
+    [
+     "2013-06",
+     12714.76
+    ],
+    [
+     "2013-07",
+     3454.56
+    ],
+    [
+     "2013-08",
+     35991.19
+    ],
+    [
+     "2013-09",
+     6871.81
+    ]
+   ]
+  },
+  {
+   "id": "q07",
+   "tags": "单表/过滤",
+   "question": "Consumer 类型的客户有多少个?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 3364,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS cnt FROM customers WHERE segment = 'Consumer'",
+   "columns": [
+    "cnt"
+   ],
+   "rows": [
+    [
+     408
+    ]
+   ],
+   "gold_rows": [
+    [
+     408
+    ]
+   ]
+  },
+  {
+   "id": "q08",
+   "tags": "多表/聚合/排序",
+   "question": "平均折扣最高的 3 个商品子类是哪些?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6277,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT p.sub_category, AVG(oi.discount) AS avg_discount, COUNT(*) AS n\nFROM order_items oi\nJOIN products p ON oi.product_id = p.product_id\nGROUP BY p.sub_category\nORDER BY avg_discount DESC\nLIMIT 3;",
+   "columns": [
+    "sub_category",
+    "avg_discount",
+    "n"
+   ],
+   "rows": [
+    [
+     "Binders",
+     0.3447368421052632,
+     38
+    ],
+    [
+     "Tables",
+     0.16793103448275862,
+     87
+    ],
+    [
+     "Furnishings",
+     0.1285714285714286,
+     14
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Binders",
+     0.3447368421052632
+    ],
+    [
+     "Tables",
+     0.16793103448275862
+    ],
+    [
+     "Furnishings",
+     0.1285714285714286
+    ]
+   ]
+  },
+  {
+   "id": "q09",
+   "tags": "单表/过滤",
+   "question": "利润为负的亏损明细有多少行?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 3554,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS loss_rows FROM order_items WHERE profit < 0",
+   "columns": [
+    "loss_rows"
+   ],
+   "rows": [
+    [
+     175
+    ]
+   ],
+   "gold_rows": [
+    [
+     175
+    ]
+   ]
+  },
+  {
+   "id": "q10",
+   "tags": "单表/排序",
+   "question": "运费最高的 5 行明细,列出行号和运费。",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 4807,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT row_id, shipping_cost FROM order_items ORDER BY shipping_cost DESC LIMIT 5",
+   "columns": [
+    "row_id",
+    "shipping_cost"
+   ],
+   "rows": [
+    [
+     26341,
+     923.63
+    ],
+    [
+     25330,
+     915.49
+    ],
+    [
+     13524,
+     910.16
+    ],
+    [
+     47221,
+     903.04
+    ],
+    [
+     22732,
+     897.35
+    ]
+   ],
+   "gold_rows": [
+    [
+     26341,
+     923.63
+    ],
+    [
+     25330,
+     915.49
+    ],
+    [
+     13524,
+     910.16
+    ],
+    [
+     47221,
+     903.04
+    ],
+    [
+     22732,
+     897.35
+    ]
+   ]
+  },
+  {
+   "id": "q11",
+   "tags": "多表/过滤",
+   "question": "美国的客户有多少个?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 3227,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS cnt FROM customers WHERE country = 'United States'",
+   "columns": [
+    "cnt"
+   ],
+   "rows": [
+    [
+     48
+    ]
+   ],
+   "gold_rows": [
+    [
+     48
+    ]
+   ]
+  },
+  {
+   "id": "q12",
+   "tags": "多表/聚合/时间",
+   "question": "2013 年 12 月的总销售额是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 5480,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT SUM(oi.sales) AS total_sales, COUNT(oi.row_id) AS item_rows\nFROM order_items oi\nJOIN orders o ON o.order_id = oi.order_id\nWHERE strftime('%Y-%m', o.order_date) = '2013-12'",
+   "columns": [
+    "total_sales",
+    "item_rows"
+   ],
+   "rows": [
+    [
+     49167.840000000004,
+     32
+    ]
+   ],
+   "gold_rows": [
+    [
+     49167.840000000004
+    ]
+   ]
+  },
+  {
+   "id": "q13",
+   "tags": "多表/聚合/排序",
+   "question": "下单次数最多的 3 个客户,列出客户编号和订单数。",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 4682,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT customer_id, COUNT(*) AS order_count\nFROM orders\nGROUP BY customer_id\nORDER BY order_count DESC\nLIMIT 3",
+   "columns": [
+    "customer_id",
+    "order_count"
+   ],
+   "rows": [
+    [
+     "AB-101051402",
+     5
+    ],
+    [
+     "AB-101651404",
+     5
+    ],
+    [
+     "AD-101801406",
+     5
+    ]
+   ],
+   "gold_rows": [
+    [
+     "AB-101051402",
+     5
+    ],
+    [
+     "AB-101651404",
+     5
+    ],
+    [
+     "AD-101801406",
+     5
+    ]
+   ]
+  },
+  {
+   "id": "q14",
+   "tags": "多表/聚合",
+   "question": "Technology 大类平均每行明细的销售额是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 4908,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS rows_cnt, AVG(oi.sales) AS avg_sales\nFROM order_items oi\nJOIN products p ON oi.product_id = p.product_id\nWHERE p.category = 'Technology'",
+   "columns": [
+    "rows_cnt",
+    "avg_sales"
+   ],
+   "rows": [
+    [
+     395,
+     1916.4127088607595
+    ]
+   ],
+   "gold_rows": [
+    [
+     1916.4127088607595
+    ]
+   ]
+  },
+  {
+   "id": "q15",
+   "tags": "单表/过滤",
+   "question": "折扣不低于 0.3 的明细有多少行?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 3753,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS cnt FROM order_items WHERE discount >= 0.3",
+   "columns": [
+    "cnt"
+   ],
+   "rows": [
+    [
+     92
+    ]
+   ],
+   "gold_rows": [
+    [
+     92
+    ]
+   ]
+  },
+  {
+   "id": "q16",
+   "tags": "单表/聚合",
+   "question": "每种配送方式各有多少张订单?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 4415,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT ship_mode, COUNT(*) AS order_count FROM orders GROUP BY ship_mode ORDER BY order_count DESC",
+   "columns": [
+    "ship_mode",
+    "order_count"
+   ],
+   "rows": [
+    [
+     "Standard Class",
+     299
+    ],
+    [
+     "First Class",
+     266
+    ],
+    [
+     "Second Class",
+     213
+    ],
+    [
+     "Same Day",
+     89
+    ]
+   ],
+   "gold_rows": [
+    [
+     "First Class",
+     266
+    ],
+    [
+     "Same Day",
+     89
+    ],
+    [
+     "Second Class",
+     213
+    ],
+    [
+     "Standard Class",
+     299
+    ]
+   ]
+  },
+  {
+   "id": "q17",
+   "tags": "单表/脏数据",
+   "question": "数量小于等于 0 的异常明细有哪些行号?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 4345,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT row_id, order_id, product_id, quantity, sales, discount, profit, shipping_cost\nFROM order_items\nWHERE quantity <= 0\nORDER BY row_id",
+   "columns": [
+    "row_id",
+    "order_id",
+    "product_id",
+    "quantity",
+    "sales",
+    "discount",
+    "profit",
+    "shipping_cost"
+   ],
+   "rows": [
+    [
+     58,
+     "MX-2012-JM1558082-41045",
+     "TEC-PH-5355",
+     0,
+     2124.5,
+     0.0,
+     488.6,
+     447.657
+    ],
+    [
+     62,
+     "MX-2015-MG1820518-42140",
+     "FUR-BO-5760",
+     -2,
+     875.22,
+     0.0,
+     139.98,
+     220.767
+    ],
+    [
+     220,
+     "US-2012-RR1952536-41270",
+     "TEC-PH-5841",
+     0,
+     1696.64,
+     0.2,
+     -148.46,
+     704.056
+    ]
+   ],
+   "gold_rows": [
+    [
+     58
+    ],
+    [
+     62
+    ],
+    [
+     220
+    ]
+   ]
+  },
+  {
+   "id": "q18",
+   "tags": "多表/聚合",
+   "question": "各市场的总利润分别是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6646,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT g.market, ROUND(SUM(oi.profit), 2) AS total_profit\nFROM order_items oi\nJOIN orders o ON oi.order_id = o.order_id\nJOIN customers c ON o.customer_id = c.customer_id\nJOIN geography g ON c.country = g.country AND c.region = g.region\nGROUP BY g.market\nORDER BY total_profit DESC;",
+   "columns": [
+    "market",
+    "total_profit"
+   ],
+   "rows": [
+    [
+     "Asia Pacific",
+     125049.49
+    ],
+    [
+     "Europe",
+     89122.08
+    ],
+    [
+     "LATAM",
+     34749.25
+    ],
+    [
+     "Africa",
+     27541.85
+    ],
+    [
+     "USCA",
+     12277.69
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Africa",
+     27541.85
+    ],
+    [
+     "Asia Pacific",
+     125049.49
+    ],
+    [
+     "Europe",
+     89122.08
+    ],
+    [
+     "LATAM",
+     34749.25
+    ],
+    [
+     "USCA",
+     12277.69
+    ]
+   ]
+  },
+  {
+   "id": "q19",
+   "tags": "多表/时间/枚举陷阱/空结果",
+   "question": "2013 年 3 月亚太市场有多少订单?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 4,
+    "sql_failures": 0,
+    "reflections": 1
+   },
+   "latency_ms": 13894,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "execute_sql",
+    "execute_sql",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(*) AS order_count\nFROM orders o\nJOIN customers c ON o.customer_id = c.customer_id\nJOIN geography g ON c.country = g.country AND c.region = g.region\nWHERE g.market = 'Asia Pacific'\n  AND strftime('%Y-%m', o.order_date) = '2013-03'",
+   "columns": [
+    "order_count"
+   ],
+   "rows": [
+    [
+     0
+    ]
+   ],
+   "gold_rows": [
+    [
+     0
+    ]
+   ]
+  },
+  {
+   "id": "q20",
+   "tags": "时间/方言陷阱",
+   "question": "2014 年每个季度的销售额分别是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6863,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT (CAST(strftime('%m', o.order_date) AS INTEGER) - 1) / 3 + 1 AS quarter,\n       ROUND(SUM(oi.sales), 2) AS total_sales\nFROM orders o\nJOIN order_items oi ON oi.order_id = o.order_id\nWHERE strftime('%Y', o.order_date) = '2014'\nGROUP BY quarter\nORDER BY quarter;",
+   "columns": [
+    "quarter",
+    "total_sales"
+   ],
+   "rows": [
+    [
+     1,
+     93973.17
+    ],
+    [
+     2,
+     125640.86
+    ],
+    [
+     3,
+     92043.8
+    ],
+    [
+     4,
+     143706.09
+    ]
+   ],
+   "gold_rows": [
+    [
+     1,
+     93973.17
+    ],
+    [
+     2,
+     125640.86
+    ],
+    [
+     3,
+     92043.8
+    ],
+    [
+     4,
+     143706.09
+    ]
+   ]
+  },
+  {
+   "id": "q21",
+   "tags": "时间/聚合/方言陷阱",
+   "question": "2013 和 2014 两年各自的总销售额是多少?",
+   "match": false,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6253,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT strftime('%Y', o.order_date) AS yr, ROUND(SUM(oi.sales),2) AS total_sales\nFROM order_items oi JOIN orders o ON oi.order_id = o.order_id\nWHERE strftime('%Y', o.order_date) IN ('2013','2014')\nGROUP BY yr ORDER BY yr;",
+   "columns": [
+    "yr",
+    "total_sales"
+   ],
+   "rows": [
+    [
+     "2013",
+     352570.33
+    ],
+    [
+     "2014",
+     455363.92
+    ]
+   ],
+   "gold_rows": [
+    [
+     "2012",
+     293829.82
+    ],
+    [
+     "2013",
+     352570.33
+    ],
+    [
+     "2014",
+     455363.92
+    ],
+    [
+     "2015",
+     605953.31
+    ]
+   ]
+  },
+  {
+   "id": "q22",
+   "tags": "多表/聚合/排序",
+   "question": "按商品汇总,利润率(总利润除以总销售额)最高的 5 个商品是哪些?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 2,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 13824,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT p.product_id, p.product_name,\n       SUM(oi.sales) AS total_sales,\n       SUM(oi.profit) AS total_profit,\n       SUM(oi.profit) * 1.0 / SUM(oi.sales) AS profit_margin\nFROM order_items oi\nJOIN products p ON oi.product_id = p.product_id\nGROUP BY oi.product_id, p.product_name\nHAVING SUM(oi.sales) > 0\nORDER BY profit_margin DESC\nLIMIT 5;",
+   "columns": [
+    "product_id",
+    "product_name",
+    "total_sales",
+    "total_profit",
+    "profit_margin"
+   ],
+   "rows": [
+    [
+     "FUR-TA-3760",
+     "Chromcraft Computer Table, Fully Assembled",
+     1483.0,
+     741.5,
+     0.5
+    ],
+    [
+     "OFF-BI-4345",
+     "GBC Ibimaster 500 Manual ProClick Binding System",
+     9892.74,
+     4946.37,
+     0.5
+    ],
+    [
+     "OFF-FA-5459",
+     "OIC Binder Clips",
+     17.9,
+     8.95,
+     0.5
+    ],
+    [
+     "OFF-PA-6497",
+     "Xerox 1942",
+     195.76,
+     97.88,
+     0.5
+    ],
+    [
+     "TEC-CO-3683",
+     "Canon Fax and Copier, Digital",
+     763.92,
+     381.96,
+     0.5
+    ]
+   ],
+   "gold_rows": [
+    [
+     "FUR-TA-3760",
+     0.5
+    ],
+    [
+     "OFF-BI-4345",
+     0.5
+    ],
+    [
+     "OFF-FA-5459",
+     0.5
+    ],
+    [
+     "OFF-PA-6497",
+     0.5
+    ],
+    [
+     "TEC-CO-3683",
+     0.5
+    ]
+   ]
+  },
+  {
+   "id": "q23",
+   "tags": "多表/聚合/排序",
+   "question": "哪个商品子类的利润率(总利润除以总销售额)最低?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 6735,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT p.sub_category,\n       SUM(oi.sales) AS total_sales,\n       SUM(oi.profit) AS total_profit,\n       SUM(oi.profit) / SUM(oi.sales) AS profit_margin\nFROM order_items oi\nJOIN products p ON oi.product_id = p.product_id\nGROUP BY p.sub_category\nORDER BY profit_margin ASC;",
+   "columns": [
+    "sub_category",
+    "total_sales",
+    "total_profit",
+    "profit_margin"
+   ],
+   "rows": [
+    [
+     "Supplies",
+     2037.92,
+     -89.85000000000001,
+     -0.04408907120986104
+    ],
+    [
+     "Tables",
+     176038.79,
+     13051.69,
+     0.07414098903997238
+    ],
+    [
+     "Storage",
+     37592.32,
+     4490.04,
+     0.11944035377438796
+    ],
+    [
+     "Machines",
+     71366.87,
+     8992.06,
+     0.1259976793153462
+    ],
+    [
+     "Chairs",
+     179648.44,
+     23245.88,
+     0.12939650352655443
+    ],
+    [
+     "Appliances",
+     289711.3,
+     48518.99,
+     0.16747358491021924
+    ],
+    [
+     "Phones",
+     417939.31,
+     75119.47,
+     0.1797377470906003
+    ],
+    [
+     "Bookcases",
+     240688.73,
+     45483.14,
+     0.18897079227598235
+    ],
+    [
+     "Art",
+     904.55,
+     191.87,
+     0.2121165220275275
+    ],
+    [
+     "Furnishings",
+     1862.26,
+     408.24,
+     0.21921750990731692
+    ],
+    [
+     "Copiers",
+     231104.67,
+     52315.19,
+     0.22637011186316572
+    ],
+    [
+     "Accessories",
+     36572.17,
+     8641.96,
+     0.23629880316098278
+    ],
+    [
+     "Envelopes",
+     114.06,
+     42.019999999999996,
+     0.36840259512537255
+    ],
+    [
+     "Binders",
+     19751.19,
+     7435.09,
+     0.3764375716096094
+    ],
+    [
+     "Labels",
+     54.79,
+     21.86,
+     0.3989779156780434
+    ],
+    [
+     "Paper",
+     1816.57,
+     806.3199999999999,
+     0.4438694903031537
+    ],
+    [
+     "Fasteners",
+     513.44,
+     246.47,
+     0.48003661576815204
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Supplies",
+     -0.04408907120986104
+    ]
+   ]
+  },
+  {
+   "id": "q24",
+   "tags": "多表/嵌套聚合",
+   "question": "Corporate 客户在 2014 年下了多少张订单,平均每张订单金额是多少?",
+   "match": true,
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 7187,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT COUNT(DISTINCT o.order_id) AS order_count,\n       SUM(i.sales) AS total_sales,\n       SUM(i.sales) / COUNT(DISTINCT o.order_id) AS avg_per_order\nFROM orders o\nJOIN customers c ON o.customer_id = c.customer_id\nJOIN order_items i ON o.order_id = i.order_id\nWHERE c.segment = 'Corporate'\n  AND o.order_date >= '2014-01-01' AND o.order_date < '2015-01-01';",
+   "columns": [
+    "order_count",
+    "total_sales",
+    "avg_per_order"
+   ],
+   "rows": [
+    [
+     67,
+     129619.83,
+     1934.624328358209
+    ]
+   ],
+   "gold_rows": [
+    [
+     67,
+     1934.624328358209
+    ]
+   ]
+  },
+  {
+   "id": "q25",
+   "tags": "聚合/方言陷阱",
+   "question": "所有明细的销售额中位数是多少?",
+   "match": false,
+   "error": null,
+   "stats": {
+    "sql_attempts": 2,
+    "sql_failures": 0,
+    "reflections": 0
+   },
+   "latency_ms": 8198,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT (SELECT sales FROM order_items WHERE sales IS NOT NULL ORDER BY sales LIMIT 1 OFFSET 498) + (SELECT sales FROM order_items WHERE sales IS NOT NULL ORDER BY sales LIMIT 1 OFFSET 499) AS median_sum FROM (SELECT 1);",
+   "columns": [
+    "median_sum"
+   ],
+   "rows": [
+    [
+     3170.23
+    ]
+   ],
+   "gold_rows": [
+    [
+     1585.115
+    ]
+   ]
+  }
+ ]
+}

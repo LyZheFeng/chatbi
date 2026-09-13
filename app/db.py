@@ -16,6 +16,13 @@ from .schemas import SqlResult
 
 TABLES = ["geography", "customers", "products", "orders", "order_items"]
 
+# 表关系图(schema 输出的固定头,Day 19):箭头 = 外键指向。
+# geography 只能经 customers 的 (country, region) 复合键到达,是最容易 JOIN 错的一跳。
+ER_DIAGRAM = """-- 表关系(→ 为外键指向;事实表是 order_items,一行 = 一张订单里的一种商品):
+-- order_items.order_id → orders.order_id;order_items.product_id → products.product_id
+-- orders.customer_id → customers.customer_id;customers.(country, region) → geography.(country, region)
+-- geography 无独立入口,须经 customers 关联到达;customers.region 缺失的客户关联不上 geography"""
+
 _SELECT_ONLY = re.compile(r"^(select|with)\b", re.IGNORECASE)
 _HAS_LIMIT = re.compile(r"\blimit\b", re.IGNORECASE)
 
@@ -30,14 +37,15 @@ def connect_ro(db_path: str | Path) -> sqlite3.Connection:
 
 
 def schema_text(conn: sqlite3.Connection, tables: list[str] | None = None) -> str:
-    """导出建表 DDL(含中文列注释,建库时写进 sqlite_master)+ 每表行数。
+    """导出 表关系图 + 建表 DDL(含中文列注释、枚举取值)+ 每表行数。
 
     传入未知表名时给出明确提示(而不是静默丢弃),供模型自行纠正。
+    只取部分表时关系图仍然返回——JOIN 路径信息与表数量无关。
     """
     requested = tables or TABLES
     wanted = [t for t in requested if t in TABLES] or TABLES
     unknown = [t for t in requested if t not in TABLES]
-    parts = []
+    parts = [ER_DIAGRAM]
     for t in wanted:
         ddl = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (t,)

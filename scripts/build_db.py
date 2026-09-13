@@ -1,7 +1,13 @@
 """建库脚本:Global Superstore(公开电商订单数据集)→ SQLite 5 张关联表。
 
 数据源:https://github.com/yannie28/Global-Superstore
-(Global Superstore 订单级明细镜像,1000 行,2013-01 ~ 2014-09)
+(Global Superstore 订单级明细镜像,1000 行;日期实际覆盖 2012-01 ~ 2015-12)
+
+Schema 管理(Day 19):
+    - 低基数码列(market/segment/category/sub_category/ship_mode/order_priority)的
+      枚举取值、日期覆盖范围、折扣范围都由建库时从数据**动态计算**写进 DDL 注释,
+      杜绝"注释写 APAC、库里存 Asia Pacific"式的人手不一致(Day 17-18 已踩过);
+    - 每列注释含业务含义 + 外键指向;order_date 注释带按月/按季度分组口径示例。
 
 表结构:
     geography(country, region, market)      国家+区域 维度表(美国分东/西/南/中 4 区)
@@ -32,22 +38,22 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV = ROOT / "data" / "raw" / "global_superstore.csv"
 DEFAULT_DB = ROOT / "data" / "chatbi.db"
 
-DDL = """
+DDL_TEMPLATE = """
 CREATE TABLE geography (
-    country TEXT NOT NULL,       -- 国家(英文)
-    region  TEXT NOT NULL,       -- 所属区域(美国分 Central/Western/Eastern/Southern US 4 区)
-    market  TEXT NOT NULL,       -- 市场:APAC / EU / USCA / LATAM / Africa
+    country TEXT NOT NULL,       -- 国家名(英文),如 United States / France / Australia
+    region  TEXT NOT NULL,       -- 所属区域(洲下细分;美国为 Central/Eastern/Southern/Western US;全部取值 SELECT DISTINCT region)
+    market  TEXT NOT NULL,       -- 市场枚举:{market_enum}
     PRIMARY KEY (country, region)
 );
 
 CREATE TABLE customers (
     customer_id   TEXT PRIMARY KEY,  -- 客户编号,如 AB-100151402
     customer_name TEXT NOT NULL,     -- 客户姓名(英文)
-    segment       TEXT NOT NULL,     -- 客户类型:Consumer / Corporate / Home Office
-    city          TEXT,              -- 城市
-    state         TEXT,              -- 州/省(可 NULL)
-    country       TEXT NOT NULL,     -- 国家
-    region        TEXT,              -- 区域;个别客户缺失(脏数据),缺失时关联不上 geography
+    segment       TEXT NOT NULL,     -- 客户类型枚举:{segment_enum}
+    city          TEXT,              -- 城市(英文)
+    state         TEXT,              -- 州/省(美国为州名,其他国家为省/大区)
+    country       TEXT NOT NULL,     -- 国家名(英文),与 geography.country 同口径
+    region        TEXT,              -- 区域,与 geography.region 同口径;个别客户缺失(脏数据),缺失时关联不上 geography
     postal_code   TEXT,              -- 邮编;仅美国有值,约 80% 为 NULL(脏数据)
     FOREIGN KEY (country, region) REFERENCES geography(country, region)
 );
@@ -55,36 +61,36 @@ CREATE TABLE customers (
 CREATE TABLE products (
     product_id   TEXT PRIMARY KEY,  -- 商品编号,如 TEC-PH-5355
     product_name TEXT NOT NULL,     -- 商品名(英文)
-    category     TEXT NOT NULL,     -- 大类:Furniture / Office Supplies / Technology
-    sub_category TEXT NOT NULL      -- 子类,如 Phones / Chairs / Bookcases
+    category     TEXT NOT NULL,     -- 商品大类枚举:{category_enum}
+    sub_category TEXT NOT NULL      -- 子类枚举({sub_category_count} 种):{sub_category_enum}
 );
 
 CREATE TABLE orders (
     order_id       TEXT PRIMARY KEY,    -- 订单号,如 CA-2014-AB10015140-41954
-    order_date     TEXT NOT NULL,       -- 下单日期 'YYYY-MM-DD'
-    ship_date      TEXT,                -- 发货日期;个别早于下单日期(脏数据)
-    ship_mode      TEXT NOT NULL,       -- 配送方式:Standard Class / Second Class / First Class / Same Day
-    order_priority TEXT NOT NULL,       -- 订单优先级:Critical / High / Medium / Low
-    customer_id    TEXT NOT NULL REFERENCES customers(customer_id)
+    order_date     TEXT NOT NULL,       -- 下单日期 'YYYY-MM-DD',覆盖 {order_date_range};按月分组 strftime('%Y-%m', order_date),按季度分组 (CAST(strftime('%m', order_date) AS INTEGER) - 1) / 3 + 1
+    ship_date      TEXT,                -- 发货日期 'YYYY-MM-DD';个别早于下单日期(脏数据)
+    ship_mode      TEXT NOT NULL,       -- 配送方式枚举:{ship_mode_enum}
+    order_priority TEXT NOT NULL,       -- 订单优先级枚举:{order_priority_enum}
+    customer_id    TEXT NOT NULL REFERENCES customers(customer_id)  -- 下单客户编号(→ customers.customer_id)
 );
 
 CREATE TABLE order_items (
     row_id         INTEGER PRIMARY KEY,  -- 明细行号(源数据 Row ID)
-    order_id       TEXT NOT NULL REFERENCES orders(order_id),
-    product_id     TEXT NOT NULL REFERENCES products(product_id),
-    sales          REAL,                 -- 销售额(美元);个别 NULL(脏数据)
-    quantity       INTEGER NOT NULL,     -- 数量;个别为 0 或负数(脏数据)
-    discount       REAL NOT NULL,        -- 折扣 0~0.5
-    profit         REAL,                 -- 利润(美元),可为负
+    order_id       TEXT NOT NULL REFERENCES orders(order_id),     -- 所属订单号(→ orders.order_id)
+    product_id     TEXT NOT NULL REFERENCES products(product_id), -- 商品编号(→ products.product_id)
+    sales          REAL,                 -- 销售额(美元,折后金额);个别 NULL(脏数据)
+    quantity       INTEGER NOT NULL,     -- 购买数量(件);个别为 0 或负数(脏数据)
+    discount       REAL NOT NULL,        -- 折扣率 {discount_range}(0 = 无折扣,0.2 = 八折)
+    profit         REAL,                 -- 利润(美元),可为负(亏损明细不罕见)
     shipping_cost  REAL NOT NULL         -- 运费(美元)
 );
 
 CREATE INDEX idx_customers_country ON customers(country);
 CREATE INDEX idx_customers_region   ON customers(region);
 CREATE INDEX idx_orders_customer   ON orders(customer_id);
-CREATE INDEX idx_orders_date       ON orders(order_date);
-CREATE INDEX idx_items_order       ON order_items(order_id);
-CREATE INDEX idx_items_product     ON order_items(product_id);
+CREATE INDEX idx_orders_date        ON orders(order_date);
+CREATE INDEX idx_items_order        ON order_items(order_id);
+CREATE INDEX idx_items_product      ON order_items(product_id);
 """
 
 
@@ -141,6 +147,7 @@ def build(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> dict:
     )
 
     dirty = _inject_dirty(geography, customers, orders, order_items)
+    ddl = _render_ddl(geography, customers, products, orders, order_items)
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
@@ -148,7 +155,7 @@ def build(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> dict:
     conn = sqlite3.connect(db_path)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
-        conn.executescript(DDL)
+        conn.executescript(ddl)
         for table, frame in [
             ("geography", geography), ("customers", customers), ("products", products),
             ("orders", orders), ("order_items", order_items),
@@ -167,6 +174,26 @@ def build(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> dict:
         conn.close()
 
     return {"tables": counts, "dirty": dirty}
+
+
+def _enum_comment(values) -> str:
+    """一列的全部实际取值,排序后 ' / ' 连接(动态写进 DDL 注释,保证注释 ↔ 数据一致)。"""
+    return " / ".join(sorted({str(v) for v in values if pd.notna(v)}))
+
+
+def _render_ddl(geography, customers, products, orders, order_items) -> str:
+    """用数据里的真实统计量填充 DDL_TEMPLATE 的占位符。"""
+    return DDL_TEMPLATE.format(
+        market_enum=_enum_comment(geography["market"]),
+        segment_enum=_enum_comment(customers["segment"]),
+        category_enum=_enum_comment(products["category"]),
+        sub_category_enum=_enum_comment(products["sub_category"]),
+        sub_category_count=products["sub_category"].nunique(),
+        ship_mode_enum=_enum_comment(orders["ship_mode"]),
+        order_priority_enum=_enum_comment(orders["order_priority"]),
+        order_date_range=f"{orders['order_date'].min()} ~ {orders['order_date'].max()}",
+        discount_range=f"{order_items['discount'].min():g} ~ {order_items['discount'].max():g}",
+    )
 
 
 def _inject_dirty(geography, customers, orders, order_items) -> list[str]:

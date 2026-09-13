@@ -24,6 +24,28 @@ def test_schema_text_contains_comments_and_counts(conn):
     assert "CREATE TABLE orders" in only_two and "未知表" in only_two
 
 
+def test_schema_text_contains_er_diagram(conn):
+    text = schema_text(conn, ["orders"])  # 只取子集时关系图仍然返回
+    assert "表关系" in text and "geography" in text
+
+
+def test_ddl_comments_match_actual_data(conn):
+    """Day 19 回归:DDL 注释里的枚举值由建库脚本从数据动态生成,必须与库中取值一致。
+
+    Day 17-18 踩过坑:注释手写 'APAC / EU',库里实际是 'Asia Pacific / Europe',
+    模型照注释写过滤条件查空,白白消耗探查步数。
+    """
+    text = schema_text(conn)
+    for col_sql, hint in [
+        ("SELECT DISTINCT market FROM geography", "市场枚举"),
+        ("SELECT DISTINCT segment FROM customers", "客户类型枚举"),
+        ("SELECT DISTINCT category FROM products", "商品大类枚举"),
+        ("SELECT DISTINCT ship_mode FROM orders", "配送方式枚举"),
+    ]:
+        for (value,) in conn.execute(col_sql):
+            assert value in text, f"{hint} 注释缺少实际取值 {value!r}"
+
+
 def test_run_select_auto_limit(conn):
     r = run_select(conn, "SELECT row_id FROM order_items", auto_limit=5)
     assert r.row_count == 5

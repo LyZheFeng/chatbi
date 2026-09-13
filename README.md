@@ -3,7 +3,7 @@
 中文自然语言 → 生成 SQL → 自愈执行(报错回传/结果反思)→ 图表 + 解读。
 备考项目 2,对应 `../agent-internship-plan.md` Week 3(Day 15~21)。
 
-## 当前进度:Day 15-18 完成(基础链路 + 自愈循环,均有真实跑分)
+## 当前进度:Day 19 完成(基础链路 + 自愈循环 + Schema 管理,均有真实跑分)
 
 **链路**:中文提问 → function calling(`get_schema` / `execute_sql` / `final_answer`)→ SQLite 只读执行 → 表格 + 中文结论 + 执行轨迹。
 
@@ -11,19 +11,25 @@
 
 | 条件 | 执行准确率 |
 |---|---|
-| 自然 · 自愈关 | 92.0% |
-| 自然 · 自愈开 | 92.0%(该模型在注释 DDL 上首错率为 0,自然无差异) |
+| 自然 · 自愈关(Day 17-18 基线) | 92.0% |
+| 自然 · 自愈开(Day 17-18 基线) | 92.0%(该模型在注释 DDL 上首错率为 0,自然无差异) |
+| 自然 · 自愈开(Day 19 Schema 注入后) | **96.0%**(24/25,唯一失手为偶数行中位数语义盲区) |
 | 故障注入⚡ · 自愈关 | **0%**(首错即降级,不编造) |
 | 故障注入⚡ · 自愈开 | **88%**(22/25 一次修正恢复) |
 
 - 数据:Global Superstore(公开电商订单数据集,1000 行明细)整理成 5 张关联表
   (geography / customers / products / orders / order_items),DDL 内嵌中文列注释;
   确定性注入 5 类脏数据(region 缺失 / 数量 0 与负数 / 销售额缺失 / 发货早于下单 / 邮编大面积空)。
+- **Schema 管理(Day 19)**:低基数码列(market/segment/category/sub_category/ship_mode/order_priority)
+  的枚举取值、日期覆盖范围、折扣范围由建库脚本**从数据动态计算**写进 DDL 注释
+  (杜绝"注释写 APAC、库里存 Asia Pacific"式人手不一致);get_schema 输出头部固定带表关系图;
+  order_date 注释带按月/按季度分组口径。效果:季度题(q20)一枪修复,枚举陷阱题(q06)从 5 步探查降为 1 枪。
 - 纪律:所有 tool_call 参数过 pydantic 严格校验;表格数据一律来自本地执行
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
 - 接口:FastAPI `POST /ask`;界面:Streamlit(`app/ui.py`)。
-- 测试:`pytest tests` 40 例(工具校验、SQL 护栏、agent 循环与自愈逻辑 FakeLLM 脚本驱动、API),不依赖网络。
+- 测试:`pytest tests` 42 例(工具校验、SQL 护栏、agent 循环与自愈逻辑 FakeLLM 脚本驱动、API、
+  DDL 注释↔数据一致性回归),不依赖网络。
 
 ## 本地运行
 
@@ -44,5 +50,5 @@ cp .env.example .env                # 内网 vLLM 配置
 
 ## 计划(详见 PROGRESS.md)
 
-Day 19 Schema 管理(枚举值入 DDL/相关表选择)→ Day 20 图表 + 解读 →
+Day 19 ✅ Schema 管理(枚举值入 DDL/表关系图)→ Day 20 图表 + 解读 →
 Day 21 安全(白名单/LIMIT/超时)+ 50 题评估 → tag `v0.1-chatbi`。

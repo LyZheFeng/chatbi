@@ -21,7 +21,9 @@ TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "get_schema",
-            "description": "获取数据库表结构(建表 DDL,含中文列注释和行数)。回答任何数据问题前应先调用。",
+            "description": "获取表结构:开头是表关系图(外键指向),随后是建表 DDL"
+                           "(含中文列注释、枚举列的实际取值)和行数。回答任何数据问题前应先调用;"
+                           "本库仅 5 张表,建议直接拿全部;tables 可选,只需个别表时传入。",
             "parameters": {
                 "type": "object",
                 "properties": {
