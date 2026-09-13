@@ -125,3 +125,127 @@ def test_parallel_tool_calls_in_one_message(conn):
     r = _agent(conn, llm).run("看看库")
     assert [s.tool for s in r.steps] == ["get_schema", "execute_sql", "final_answer"]
     assert all(s.ok for s in r.steps)
+
+
+# ---------- Day 17-18:自愈循环 ----------
+
+
+def test_consecutive_sql_failures_hit_cap_and_degrade(conn):
+    llm = FakeLLM([_msg([_tc("execute_sql", sql="SELECT nope FROM order_items")])] * 10)
+    r = _agent(conn, llm).run("连续打错")
+    assert r.error and "连续 3 次执行失败" in r.error and "no such column" in r.error
+    assert len([s for s in r.steps if s.tool == "execute_sql"]) == 3  # 上限即停,不烧满 8 步
+    assert r.stats == {"sql_attempts": 3, "sql_failures": 3, "reflections": 0}
+
+
+def test_failure_streak_resets_after_success(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT bad FROM order_items")]),
+        _msg([_tc("execute_sql", sql="SELECT bad2 FROM order_items")]),
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM order_items")]),
+        _msg([_tc("execute_sql", sql="SELECT bad3 FROM order_items")]),
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM orders")]),
+        _msg([_tc("final_answer", summary="订单数拿到了。")]),
+    ])
+    r = _agent(conn, llm).run("错两次对一次错一次再对")
+    assert r.error is None
+    assert r.stats["sql_attempts"] == 5 and r.stats["sql_failures"] == 3
+    assert r.sql.startswith("SELECT COUNT(*) AS n FROM orders")
+
+
+def test_error_hint_appended_for_bad_column(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT revenue FROM order_items")]),
+        _msg([_tc("final_answer", summary="算了。")]),
+    ])
+    _agent(conn, llm).run("列名打错")
+    fed = llm.seen[1][-1]["content"]
+    assert fed.startswith("ERROR") and "列名不存在" in fed
+
+
+def test_empty_result_triggers_reflection_hint(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM order_items WHERE quantity > 100")]),
+        _msg([_tc("final_answer", summary="数量都 <=100,查不到更大的。")]),
+    ])
+    r = _agent(conn, llm).run("有没有数量大于 100 的明细")
+    assert r.stats["reflections"] == 1
+    fed = llm.seen[1][-1]["content"]
+    assert "反思提示" in fed and "枚举值" in fed
+    assert r.result.rows[0][0] == 0  # 空聚合结果照常返回给前端
+
+
+def test_all_zero_single_column_triggers_reflection(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT SUM(sales) AS s FROM order_items WHERE row_id = -1")]),
+        _msg([_tc("final_answer", summary="没有这一行。")]),
+    ])
+    r = _agent(conn, llm).run("不存在的行求和")
+    assert r.stats["reflections"] == 1
+
+
+def test_normal_result_no_reflection(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM order_items")]),
+        _msg([_tc("final_answer", summary="1000 行。")]),
+    ])
+    r = _agent(conn, llm).run("多少行")
+    assert r.stats["reflections"] == 0
+
+
+def test_self_heal_off_degrades_on_first_error(conn):
+    llm = FakeLLM([
+        _msg([_tc("get_schema")]),
+        _msg([_tc("execute_sql", sql="SELECT bad FROM order_items")]),
+        _msg([_tc("final_answer", summary="不会到这里。")]),
+    ])
+    agent = ChatbiAgent(llm, conn, self_heal=False, cap=50, auto_limit=10)
+    r = agent.run("关自愈")
+    assert r.error and "自愈已关闭" in r.error and "no such column" in r.error
+    assert [s.tool for s in r.steps] == ["get_schema", "execute_sql"]  # 不给重试机会
+    assert r.summary == ""  # 没有编造
+
+
+def test_self_heal_off_no_reflection_on_empty(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM order_items WHERE quantity > 100")]),
+        _msg([_tc("final_answer", summary="无。")]),
+    ])
+    agent = ChatbiAgent(llm, conn, self_heal=False, cap=50, auto_limit=10)
+    r = agent.run("关自愈空结果")
+    assert r.stats["reflections"] == 0
+    assert "反思提示" not in llm.seen[1][-1]["content"]
+
+
+def test_self_heal_off_success_path_unaffected(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM customers")]),
+        _msg([_tc("final_answer", summary="800 个客户。")]),
+    ])
+    agent = ChatbiAgent(llm, conn, self_heal=False, cap=50, auto_limit=10)
+    r = agent.run("多少客户")
+    assert r.error is None and r.summary == "800 个客户。"
+
+
+def test_final_answer_sql_reexecuted_for_display_consistency(conn):
+    # 模型探查枚举后又直接作答(没重跑计数)——展示表格必须来自自报 SQL,不是探查结果
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT DISTINCT market FROM geography")]),
+        _msg([_tc("final_answer", summary="数量为 0。",
+                  sql="SELECT COUNT(*) FROM order_items WHERE quantity > 100")]),
+    ])
+    r = _agent(conn, llm).run("探查后作答")
+    assert r.result.columns == ["COUNT(*)"]
+    assert r.result.rows == [[0]]
+    assert "quantity > 100" in r.sql
+
+
+def test_final_answer_bad_sql_keeps_last_result(conn):
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM customers")]),
+        _msg([_tc("final_answer", summary="4 个客户。", sql="SELECT FROM WHERE")]),
+    ])
+    r = _agent(conn, llm).run("自报坏 SQL")
+    assert r.result.rows == [[4]]  # 保留最近一次成功结果
+    assert r.sql == "SELECT FROM WHERE"  # 展示仍是模型自报的
+    assert r.error is None

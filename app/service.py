@@ -30,6 +30,7 @@ class ChatbiService:
             steps=r.steps,
             error=r.error,
             latency_ms=int((time.perf_counter() - t0) * 1000),
+            stats=r.stats,
         )
 
 
@@ -46,6 +47,8 @@ def get_service() -> ChatbiService:
             max_steps=s.max_tool_steps,
             cap=s.sql_row_cap,
             auto_limit=s.auto_limit,
+            self_heal=s.self_heal,
+            max_sql_retries=s.max_sql_retries,
         )
 
     return ChatbiService(factory)

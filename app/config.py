@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     sql_row_cap: int = 200    # 单次查询最多返回给模型/前端的行数
     auto_limit: int = 100     # SQL 未写 LIMIT 时自动补的默认上限
 
+    self_heal: bool = True        # 自愈循环开关(错误回传重试 + 结果反思);off = 首错即降级
+    max_sql_retries: int = 3      # execute_sql 连续失败上限,超过即优雅降级
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

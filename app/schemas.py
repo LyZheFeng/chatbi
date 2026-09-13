@@ -64,3 +64,4 @@ class AskResponse(BaseModel):
     steps: list[ToolStep] = Field(default_factory=list)
     error: str | None = None   # 优雅降级时的失败原因(不编造)
     latency_ms: int = 0
+    stats: dict[str, int] = Field(default_factory=dict)  # sql_attempts / sql_failures / reflections
