@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 环境与密钥
+.env
+
+# 本地数据与产物(视情况放开)
+*.db
+*.sqlite*
+data/raw/
