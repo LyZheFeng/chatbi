@@ -235,7 +235,7 @@ def test_spec_has_no_toplevel_padding(question, cols, rows):
     """Streamlit 包装层对顶层数字 padding 抛 TypeError(实测定位),padding 必须放 config。"""
     spec, _ = build_chart(question, cols, rows)
     assert "padding" not in spec
-    assert spec["config"]["padding"] == 12
+    assert spec["config"]["padding"] == 22  # 标题与画布边缘的呼吸空间
 
 
 # ---------- service 集成 ----------

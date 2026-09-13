@@ -257,9 +257,10 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
         "config": {
             "background": "white",
             # padding 放 config 而非顶层:Streamlit 的 vega 包装层对顶层数字 padding 会抛
-            # TypeError(实测二分定位),config.padding 效果相同且不经过它
-            "padding": 12,
-            "title": {"color": _TEXT, "offset": 10},
+            # TypeError(实测二分定位),config.padding 效果相同且不经过它;
+            # 加大 padding + 标题 offset,标题不再贴画布边缘
+            "padding": 22,
+            "title": {"color": _TEXT, "offset": 18, "fontSize": 14, "fontWeight": 600},
             "axis": {"labelColor": _TEXT, "titleColor": _TEXT, "gridColor": "#e6e8eb",
                      "domainColor": "#c8ccd0", "tickColor": "#c8ccd0"},
             "legend": {"labelColor": _TEXT, "titleColor": _TEXT},
