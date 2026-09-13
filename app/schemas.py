@@ -61,6 +61,8 @@ class AskResponse(BaseModel):
     columns: list[str] = Field(default_factory=list)
     rows: list[list[Any]] = Field(default_factory=list)
     row_count: int = 0
+    chart_spec: dict[str, Any] | None = None  # Vega-Lite 图表配置(UI 与接口共用一份)
+    chart_reading: str = ""    # "怎么读这张图"的模板化解读(数字全部来自本地执行结果)
     steps: list[ToolStep] = Field(default_factory=list)
     error: str | None = None   # 优雅降级时的失败原因(不编造)
     latency_ms: int = 0

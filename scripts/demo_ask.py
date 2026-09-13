@@ -38,6 +38,8 @@ def main() -> None:
                 print("  ", row)
             if resp.row_count > 5:
                 print(f"   ... 共 {resp.row_count} 行")
+        if resp.chart_spec:
+            print(f"[图表] {resp.chart_spec['mark']['type']} | {resp.chart_reading}")
         for s in resp.steps:
             mark = "✓" if s.ok else "✗"
             print(f"  {mark} 步骤{s.step} {s.tool}: {s.detail[:90]}")

@@ -31,6 +31,10 @@ def _render(resp: AskResponse) -> None:
     if resp.summary:
         st.success(resp.summary)
     if resp.row_count:
+        if resp.chart_spec:
+            st.vega_lite_chart(resp.chart_spec, use_container_width=True)
+        if resp.chart_reading:
+            st.info(f"📈 **怎么读这张图**:{resp.chart_reading}")
         st.dataframe(pd.DataFrame(resp.rows, columns=resp.columns), use_container_width=True)
         st.caption(f"{resp.row_count} 行 · {resp.latency_ms} ms")
     with st.expander("SQL 与执行轨迹"):
@@ -44,7 +48,7 @@ def _render(resp: AskResponse) -> None:
 
 st.set_page_config(page_title="ChatBI · 电商订单分析", page_icon="📊", layout="wide")
 st.title("ChatBI · 电商订单分析")
-st.caption("中文提问 → 生成 SQL → 执行 → 表格 + 结论(Global Superstore,2013-2014)")
+st.caption("中文提问 → 生成 SQL → 执行 → 图表 + 表格 + 结论(Global Superstore,2012-2015)")
 st.markdown("**示例问题:** " + " · ".join(f"`{e}`" for e in EXAMPLES))
 
 if "history" not in st.session_state:
