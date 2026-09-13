@@ -32,7 +32,9 @@ def _render(resp: AskResponse) -> None:
         st.success(resp.summary)
     if resp.row_count:
         if resp.chart_spec:
-            st.vega_lite_chart(resp.chart_spec, use_container_width=True)
+            # theme=None:关闭 Streamlit 的 vega 主题接管(深色模式下它会把文字刷成浅色,
+            # 叠在 spec 自带的白底上看不清);spec 内已显式钉死深色文字,双保险
+            st.vega_lite_chart(resp.chart_spec, use_container_width=True, theme=None)
         if resp.chart_reading:
             st.info(f"📈 **怎么读这张图**:{resp.chart_reading}")
         st.dataframe(pd.DataFrame(resp.rows, columns=resp.columns), use_container_width=True)

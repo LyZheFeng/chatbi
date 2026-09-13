@@ -33,6 +33,7 @@ _QUARTER_NAME = re.compile(r"quarter|季度", re.I)
 _MONTH_NAME = re.compile(r"month|月份", re.I)
 _ID_LIKE = re.compile(r"(^|_)(id|no|编号|邮编|postal|zip|code)$", re.I)
 _DATE_VALUE = re.compile(r"\d{4}(-\d{2}){0,2}")
+_TEXT = "#262730"  # 图表文字钉死的深灰(白底可读,不随 UI 主题漂移)
 
 
 @dataclass
@@ -231,11 +232,18 @@ def _plan_scatter(rows: list[list[Any]], x: _Col, y: _Col) -> dict | None:
 
 
 def _spec(question: str, p: dict) -> dict[str, Any]:
-    # 固定白底:深色 UI 主题下 Vega 默认黑字会看不清,自带浅色画布两边都稳
+    # 自带浅色画布 + 钉死的深色文字:深色 UI 下 Streamlit 的 vega 主题会把标题/轴文字
+    # 渲染成浅色,叠在白底上就看不清——文字颜色不交给主题,前端怎么嵌都可读
     s: dict[str, Any] = {
-        "background": "white",
         "title": question if len(question) <= 34 else question[:33] + "…",
         "data": {"values": p["values"]},
+        "config": {
+            "background": "white",
+            "title": {"color": _TEXT},
+            "axis": {"labelColor": _TEXT, "titleColor": _TEXT, "gridColor": "#e6e8eb",
+                     "domainColor": "#c8ccd0", "tickColor": "#c8ccd0"},
+            "legend": {"labelColor": _TEXT, "titleColor": _TEXT},
+        },
     }
     t, dim, ms = p["type"], p["dim"], p["measures"]
     if t in ("line", "multiline"):

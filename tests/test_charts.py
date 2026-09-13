@@ -196,6 +196,14 @@ def test_spec_is_json_serializable():
     json.dumps(spec, ensure_ascii=False)  # API/前端可直接序列化
 
 
+def test_spec_pins_readable_text_colors():
+    """UI 修复回归:深色主题下 Streamlit vega 主题会把文字刷浅叠白底,spec 必须自带深色文字。"""
+    spec, _ = build_chart("各市场销售额", *_bar_table())
+    cfg = spec["config"]
+    assert cfg["background"] == "white"
+    assert cfg["title"]["color"] == cfg["axis"]["labelColor"] == cfg["legend"]["labelColor"] == "#262730"
+
+
 # ---------- service 集成 ----------
 
 
