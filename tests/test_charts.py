@@ -48,6 +48,9 @@ def test_pie_when_question_asks_share():
     assert labels["EU"] == "60.1%"  # 1815/3020,标签在本地算好
     legends = {r["market"]: r["_legend"] for r in spec["data"]["values"]}
     assert legends["EU"] == "EU 60.1%"
+    # 扇区中点角(度,12 点钟起顺时针):EU 60.1% → 108.18,AP 29.97% → 270.3,US 9.93% → 342.12
+    mids = {r["market"]: r["_mid"] for r in spec["data"]["values"]}
+    assert mids == {"EU": 108.18, "AP": 270.3, "US": 342.12}
     assert "占比最大" in reading and "60.1%" in reading
 
 

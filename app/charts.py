@@ -207,13 +207,17 @@ def _plan_bar(question: str, rows: list[list[Any]], *, cat: _Col, nums: list[_Co
         values = list(reversed(values))  # 横条 y 轴自下而上,反转后最大值在最上
     if pie:
         # 百分比标签的原料在本地算好(数字仍全部来自执行结果),扇区文字/图例/tooltip 直接用;
-        # 图例带"名称 占比",不用拿颜色去图例里对暗号
+        # 图例带"名称 占比",不用拿颜色去图例里对暗号;_mid = 扇区中点角(度,12 点钟起顺时针),
+        # 文字层用它定位——直接给 theta 通道原始值会落在扇区"终点角"上,不居中
         total = sum(rec[m0] for rec in values)
+        cum = 0.0
         for rec in values:
             p = rec[m0] / total * 100 if total else 0.0
             rec["_pct"] = round(p, 1)
             rec["_label"] = f"{p:.1f}%"
             rec["_legend"] = f"{rec[cat.name]} {p:.1f}%"
+            rec["_mid"] = round((cum + (rec[m0] / total if total else 0) / 2) * 360, 2)
+            cum += rec[m0] / total if total else 0
     return {
         "type": chart_type, "dim": cat.name, "group": None,
         "measures": [nums[0].name] if pie else [m.name for m in nums], "values": values,
@@ -333,7 +337,8 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
                 "mark": {"type": "text", "radius": 92, "fontSize": 11.5,
                          "fontWeight": 600, "color": "#ffffff"},
                 "encoding": {
-                    "theta": {"field": ms[0], "type": "quantitative"},
+                    "theta": {"field": "_mid", "type": "quantitative",
+                              "scale": {"domain": [0, 360]}},
                     "text": {"condition": {"test": "datum._pct >= 6", "field": "_label"},
                              "value": ""},
                 },
