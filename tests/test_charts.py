@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from app.charts import build_chart
 
 
@@ -37,9 +39,13 @@ def test_hbar_when_long_labels():
 
 def test_pie_when_question_asks_share():
     spec, reading = build_chart("各市场销售额占比", *_bar_table())
-    assert spec["mark"]["type"] == "arc"
-    assert spec["encoding"]["theta"]["field"] == "total"
-    assert "占比最大" in reading and "60.1%" in reading  # 1815/3020
+    arc = spec["layer"][0]  # 甜甜圈:第一层 arc,第二层扇区百分比文字
+    assert arc["mark"]["type"] == "arc" and arc["mark"]["innerRadius"] == 60
+    assert arc["encoding"]["theta"]["field"] == "total"
+    assert spec["layer"][1]["mark"]["type"] == "text"
+    labels = {r["market"]: r["_label"] for r in spec["data"]["values"]}
+    assert labels["EU"] == "60.1%"  # 1815/3020,标签在本地算好
+    assert "占比最大" in reading and "60.1%" in reading
 
 
 def test_no_pie_without_share_keyword():
@@ -83,8 +89,13 @@ def test_pie_ignores_extra_pct_column():
     rows = [["Asia Pacific", 797866.37, 46.72], ["Europe", 503568.21, 29.49],
             ["LATAM", 231207.8, 13.54], ["Africa", 115205.93, 6.75], ["USCA", 55422.09, 3.25]]
     spec, reading = build_chart("各市场销售额占比", cols, rows)
-    assert spec["mark"]["type"] == "arc"
-    assert spec["encoding"]["theta"]["field"] == "sales"
+    arc = spec["layer"][0]
+    assert arc["mark"]["type"] == "arc"
+    assert arc["encoding"]["theta"]["field"] == "sales"
+    # 小切片(USCA 3.3%)不标注的条件 + 本地算好的占比标签都在 spec 里
+    cond = spec["layer"][1]["encoding"]["text"]["condition"]
+    assert cond["test"] == "datum._pct >= 6"
+    assert all("_label" in r for r in spec["data"]["values"])
     assert "图内合计" in reading and "占比最大" in reading
 
 
@@ -202,6 +213,19 @@ def test_spec_pins_readable_text_colors():
     cfg = spec["config"]
     assert cfg["background"] == "white"
     assert cfg["title"]["color"] == cfg["axis"]["labelColor"] == cfg["legend"]["labelColor"] == "#262730"
+
+
+@pytest.mark.parametrize("question,cols,rows", [
+    ("各市场销售额", *_bar_table()),
+    ("各市场销售额占比", *_bar_table()),
+    ("2014 年按月销售额趋势是怎样的?",
+     ["月份", "sales"], [["2014-01", 100], ["2014-02", 200], ["2014-03", 150]]),
+])
+def test_spec_has_no_toplevel_padding(question, cols, rows):
+    """Streamlit 包装层对顶层数字 padding 抛 TypeError(实测定位),padding 必须放 config。"""
+    spec, _ = build_chart(question, cols, rows)
+    assert "padding" not in spec
+    assert spec["config"]["padding"] == 12
 
 
 # ---------- service 集成 ----------

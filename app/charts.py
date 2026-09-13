@@ -205,6 +205,13 @@ def _plan_bar(question: str, rows: list[list[Any]], *, cat: _Col, nums: list[_Co
     chart_type = "pie" if pie else ("hbar" if n > 12 or max_label > 8 else "bar")
     if chart_type == "hbar":
         values = list(reversed(values))  # 横条 y 轴自下而上,反转后最大值在最上
+    if pie:
+        # 百分比标签的原料在本地算好(数字仍全部来自执行结果),扇区文字与 tooltip 直接用
+        total = sum(rec[m0] for rec in values)
+        for rec in values:
+            p = rec[m0] / total * 100 if total else 0.0
+            rec["_pct"] = round(p, 1)
+            rec["_label"] = f"{p:.1f}%"
     return {
         "type": chart_type, "dim": cat.name, "group": None,
         "measures": [nums[0].name] if pie else [m.name for m in nums], "values": values,
@@ -239,7 +246,10 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
         "data": {"values": p["values"]},
         "config": {
             "background": "white",
-            "title": {"color": _TEXT},
+            # padding 放 config 而非顶层:Streamlit 的 vega 包装层对顶层数字 padding 会抛
+            # TypeError(实测二分定位),config.padding 效果相同且不经过它
+            "padding": 12,
+            "title": {"color": _TEXT, "offset": 10},
             "axis": {"labelColor": _TEXT, "titleColor": _TEXT, "gridColor": "#e6e8eb",
                      "domainColor": "#c8ccd0", "tickColor": "#c8ccd0"},
             "legend": {"labelColor": _TEXT, "titleColor": _TEXT},
@@ -301,13 +311,32 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
         s["encoding"]["tooltip"] = tip
         s["encoding"] = {k: v for k, v in s["encoding"].items() if v is not None}
     elif t == "pie":
-        s["mark"] = {"type": "arc"}
-        s["height"] = 300
-        s["encoding"] = {
-            "theta": {"field": ms[0], "type": "quantitative"},
-            "color": {"field": dim, "type": "nominal", "title": None},
-            "tooltip": [{"field": dim, "type": "nominal"}, {"field": ms[0], "type": "quantitative"}],
-        }
+        # 甜甜圈 + 扇区百分比标签:占比一眼可读,小切片(<6%)不标注防挤压;
+        # 图例沉底,标题/图例由 config.padding 留出边缘呼吸空间
+        s["height"] = 340
+        s["layer"] = [
+            {
+                "mark": {"type": "arc", "innerRadius": 60, "cornerRadius": 2,
+                         "stroke": "#ffffff", "strokeWidth": 2, "padAngle": 0.02},
+                "encoding": {
+                    "theta": {"field": ms[0], "type": "quantitative"},
+                    "color": {"field": dim, "type": "nominal", "title": None, "sort": None,
+                              "legend": {"orient": "bottom", "columns": 3}},
+                    "tooltip": [{"field": dim, "type": "nominal"},
+                                {"field": ms[0], "type": "quantitative"},
+                                {"field": "_label", "type": "nominal", "title": "占比"}],
+                },
+            },
+            {
+                "mark": {"type": "text", "radius": 92, "fontSize": 11.5,
+                         "fontWeight": 600, "color": "#ffffff"},
+                "encoding": {
+                    "theta": {"field": ms[0], "type": "quantitative"},
+                    "text": {"condition": {"test": "datum._pct >= 6", "field": "_label"},
+                             "value": ""},
+                },
+            },
+        ]
     else:  # scatter
         s["mark"] = {"type": "point", "filled": True, "opacity": 0.7}
         s["height"] = 320

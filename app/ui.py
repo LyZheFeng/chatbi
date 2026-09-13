@@ -94,7 +94,10 @@ def _render(resp: AskResponse) -> None:
         _badges(resp)
     if resp.row_count and not single:
         if resp.chart_spec:
-            label = _CHART_LABEL.get(resp.chart_spec["mark"]["type"], "图表")
+            # 饼图是 layer 结构(arc + 百分比文字),其余图型直接有 mark
+            spec = resp.chart_spec
+            mark_type = spec.get("mark", {}).get("type") or spec.get("layer", [{}])[0].get("mark", {}).get("type", "")
+            label = _CHART_LABEL.get(mark_type, "图表")
             st.caption(f"📈 自动选型:**{label}**")
             # theme=None:关闭 Streamlit 的 vega 主题接管(深色模式下它会把文字刷成浅色,
             # 叠在 spec 自带的白底上看不清);spec 内已显式钉死深色文字,双保险
