@@ -43,6 +43,8 @@ def test_pie_when_question_asks_share():
     assert arc["mark"]["type"] == "arc" and arc["mark"]["innerRadius"] == 60
     assert arc["encoding"]["theta"]["field"] == "total"
     assert arc["encoding"]["color"]["field"] == "_legend"  # 图例带"名称 占比",不用颜色对暗号
+    # theta 比例尺两层独立:共享时 arc 的堆叠值被套进文字层的 [0,360] 度,扇区全变整圈
+    assert spec["resolve"] == {"scale": {"theta": "independent"}}
     assert spec["layer"][1]["mark"]["type"] == "text"
     labels = {r["market"]: r["_label"] for r in spec["data"]["values"]}
     assert labels["EU"] == "60.1%"  # 1815/3020,标签在本地算好

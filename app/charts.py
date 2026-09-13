@@ -318,8 +318,11 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
         s["encoding"] = {k: v for k, v in s["encoding"].items() if v is not None}
     elif t == "pie":
         # 甜甜圈 + 扇区百分比标签:占比一眼可读,小切片(<6%)不标注防挤压;
-        # 图例沉底,标题/图例由 config.padding 留出边缘呼吸空间
+        # 图例沉底,标题/图例由 config.padding 留出边缘呼吸空间。
+        # theta 比例尺必须各层独立:文字层用 [0,360] 度定位中点角,arc 层用堆叠值,
+        # 共享时堆叠值(0~合计)会被套进 360 度,扇区全被拉成整圈、叠成一色
         s["height"] = 340
+        s["resolve"] = {"scale": {"theta": "independent"}}
         s["layer"] = [
             {
                 "mark": {"type": "arc", "innerRadius": 60, "cornerRadius": 2,

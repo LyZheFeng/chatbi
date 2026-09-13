@@ -64,3 +64,8 @@
 
 - **Streamlit 的 vega 包装层对顶层数字 padding 抛 TypeError** → 图表 spec 加 `"padding": 16` 后整卡渲染崩(vega-lite 5.22 独立编译同一 spec 完全合法);四变体二分(去 padding/去文字层/去描边/去 tooltip)一轮锁定 padding,tooltip 二轮排除 → 改放 `config.padding`(等效且不经过包装层),并加回归测试断言 spec 无顶层 padding;结论:**三方(vega-lite 官方/本地编译/Streamlit 包装)对 spec 的接受面不一致,以目标渲染器实测为准**。
 - **服务重启后旧标签是僵尸 DOM** → 重启 Streamlit 后在未刷新的标签里点按钮、看报错,把"已修复"误判成"还在坏";排查半天最后发现服务端日志无异常、真实 spec 在干净页面渲染正常 → 验证前必须 reload,以服务端日志和新鲜 DOM 为准,别信断线前的页面。
+
+## 2026-09-13 · 饼图标签两连坑(Vega-Lite layer 共享比例尺)
+
+- **theta 通道绑原始数值,文字落在扇区终点角而非中点** → 文字层的 theta 直接用销售额字段,角度=该值占合计的比例(=扇区终点),Europe 的标签压进 Asia Pacific 扇区 → 修法:Python 预算扇区中点角 `_mid`(度),文字层 theta 显式 scale [0,360] 按角度定位。
+- **layer 之间默认共享比例尺,显式 scale 会反向污染 arc 层** → 上一修法给文字层 theta 设了 [0,360] 值域,Vega-Lite 把它和 arc 层的堆叠 theta 比例尺合并,arc 的堆叠值(0~170 万)被套进 360 度,每个扇区拉成整圈、五个整圈叠成一色 → 修法:`resolve.scale.theta=independent` 让两层各用各的;教训:**在 layer 里给任何通道显式设 scale 前,先想清楚这个通道是不是被别的层共享**。
