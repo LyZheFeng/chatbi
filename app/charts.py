@@ -206,12 +206,14 @@ def _plan_bar(question: str, rows: list[list[Any]], *, cat: _Col, nums: list[_Co
     if chart_type == "hbar":
         values = list(reversed(values))  # 横条 y 轴自下而上,反转后最大值在最上
     if pie:
-        # 百分比标签的原料在本地算好(数字仍全部来自执行结果),扇区文字与 tooltip 直接用
+        # 百分比标签的原料在本地算好(数字仍全部来自执行结果),扇区文字/图例/tooltip 直接用;
+        # 图例带"名称 占比",不用拿颜色去图例里对暗号
         total = sum(rec[m0] for rec in values)
         for rec in values:
             p = rec[m0] / total * 100 if total else 0.0
             rec["_pct"] = round(p, 1)
             rec["_label"] = f"{p:.1f}%"
+            rec["_legend"] = f"{rec[cat.name]} {p:.1f}%"
     return {
         "type": chart_type, "dim": cat.name, "group": None,
         "measures": [nums[0].name] if pie else [m.name for m in nums], "values": values,
@@ -320,7 +322,7 @@ def _spec(question: str, p: dict) -> dict[str, Any]:
                          "stroke": "#ffffff", "strokeWidth": 2, "padAngle": 0.02},
                 "encoding": {
                     "theta": {"field": ms[0], "type": "quantitative"},
-                    "color": {"field": dim, "type": "nominal", "title": None, "sort": None,
+                    "color": {"field": "_legend", "type": "nominal", "title": None, "sort": None,
                               "legend": {"orient": "bottom", "columns": 3}},
                     "tooltip": [{"field": dim, "type": "nominal"},
                                 {"field": ms[0], "type": "quantitative"},

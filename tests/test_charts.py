@@ -42,9 +42,12 @@ def test_pie_when_question_asks_share():
     arc = spec["layer"][0]  # 甜甜圈:第一层 arc,第二层扇区百分比文字
     assert arc["mark"]["type"] == "arc" and arc["mark"]["innerRadius"] == 60
     assert arc["encoding"]["theta"]["field"] == "total"
+    assert arc["encoding"]["color"]["field"] == "_legend"  # 图例带"名称 占比",不用颜色对暗号
     assert spec["layer"][1]["mark"]["type"] == "text"
     labels = {r["market"]: r["_label"] for r in spec["data"]["values"]}
     assert labels["EU"] == "60.1%"  # 1815/3020,标签在本地算好
+    legends = {r["market"]: r["_legend"] for r in spec["data"]["values"]}
+    assert legends["EU"] == "EU 60.1%"
     assert "占比最大" in reading and "60.1%" in reading
 
 
