@@ -1,0 +1,861 @@
+{
+ "summary": {
+  "heal": "off",
+  "date": "2026-09-13 14:11",
+  "total": 25,
+  "matched": 0,
+  "accuracy": 0.0,
+  "degraded": 25,
+  "healed_and_matched": 0,
+  "avg_latency_ms": 2285
+ },
+ "records": [
+  {
+   "id": "q01",
+   "tags": "单表/计数",
+   "question": "订单明细一共有多少行?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2046,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     1000
+    ]
+   ]
+  },
+  {
+   "id": "q02",
+   "tags": "单表/计数",
+   "question": "数据库里一共有多少个客户?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: customers_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1812,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     800
+    ]
+   ]
+  },
+  {
+   "id": "q03",
+   "tags": "单表/时间",
+   "question": "2014 年一共下了多少张订单?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: orders_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1755,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     222
+    ]
+   ]
+  },
+  {
+   "id": "q04",
+   "tags": "多表/聚合/排序",
+   "question": "2014 年销售额最高的 5 个国家是哪些?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2851,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "Australia",
+     53303.4
+    ],
+    [
+     "China",
+     47858.51
+    ],
+    [
+     "France",
+     40867.06
+    ],
+    [
+     "India",
+     25149.3
+    ],
+    [
+     "Spain",
+     21021.39
+    ]
+   ]
+  },
+  {
+   "id": "q05",
+   "tags": "多表/聚合",
+   "question": "三个商品大类各自的销售额和总利润是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2340,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "Furniture",
+     598238.22,
+     82188.95
+    ],
+    [
+     "Office Supplies",
+     352496.14,
+     61662.81
+    ],
+    [
+     "Technology",
+     756983.02,
+     145068.68
+    ]
+   ]
+  },
+  {
+   "id": "q06",
+   "tags": "多表/聚合/时间/枚举陷阱",
+   "question": "亚太市场按月的销售额趋势是怎样的?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2843,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "2012-01",
+     5048.6
+    ],
+    [
+     "2012-02",
+     11401.380000000001
+    ],
+    [
+     "2012-03",
+     5188.860000000001
+    ],
+    [
+     "2012-04",
+     2896.24
+    ],
+    [
+     "2012-05",
+     13164.17
+    ],
+    [
+     "2012-06",
+     13043.91
+    ],
+    [
+     "2012-07",
+     2555.64
+    ],
+    [
+     "2012-08",
+     11187.67
+    ],
+    [
+     "2012-09",
+     5577.610000000001
+    ],
+    [
+     "2012-10",
+     14255.06
+    ],
+    [
+     "2012-11",
+     27558.94
+    ],
+    [
+     "2012-12",
+     21316.579999999998
+    ],
+    [
+     "2013-01",
+     8885.38
+    ],
+    [
+     "2013-02",
+     15649.99
+    ],
+    [
+     "2013-04",
+     14001.72
+    ],
+    [
+     "2013-05",
+     20073.89
+    ],
+    [
+     "2013-06",
+     12714.76
+    ],
+    [
+     "2013-07",
+     3454.56
+    ],
+    [
+     "2013-08",
+     35991.19
+    ],
+    [
+     "2013-09",
+     6871.81
+    ]
+   ]
+  },
+  {
+   "id": "q07",
+   "tags": "单表/过滤",
+   "question": "Consumer 类型的客户有多少个?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: customers_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1671,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     408
+    ]
+   ]
+  },
+  {
+   "id": "q08",
+   "tags": "多表/聚合/排序",
+   "question": "平均折扣最高的 3 个商品子类是哪些?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2329,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "Binders",
+     0.3447368421052632
+    ],
+    [
+     "Tables",
+     0.16793103448275862
+    ],
+    [
+     "Furnishings",
+     0.1285714285714286
+    ]
+   ]
+  },
+  {
+   "id": "q09",
+   "tags": "单表/过滤",
+   "question": "利润为负的亏损明细有多少行?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1701,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     175
+    ]
+   ]
+  },
+  {
+   "id": "q10",
+   "tags": "单表/排序",
+   "question": "运费最高的 5 行明细,列出行号和运费。",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1758,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     26341,
+     923.63
+    ],
+    [
+     25330,
+     915.49
+    ],
+    [
+     13524,
+     910.16
+    ],
+    [
+     47221,
+     903.04
+    ],
+    [
+     22732,
+     897.35
+    ]
+   ]
+  },
+  {
+   "id": "q11",
+   "tags": "多表/过滤",
+   "question": "美国的客户有多少个?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: customers_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1698,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     48
+    ]
+   ]
+  },
+  {
+   "id": "q12",
+   "tags": "多表/聚合/时间",
+   "question": "2013 年 12 月的总销售额是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2932,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     49167.840000000004
+    ]
+   ]
+  },
+  {
+   "id": "q13",
+   "tags": "多表/聚合/排序",
+   "question": "下单次数最多的 3 个客户,列出客户编号和订单数。",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: orders_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1899,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "AB-101051402",
+     5
+    ],
+    [
+     "AB-101651404",
+     5
+    ],
+    [
+     "AD-101801406",
+     5
+    ]
+   ]
+  },
+  {
+   "id": "q14",
+   "tags": "多表/聚合",
+   "question": "Technology 大类平均每行明细的销售额是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2269,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     1916.4127088607595
+    ]
+   ]
+  },
+  {
+   "id": "q15",
+   "tags": "单表/过滤",
+   "question": "折扣不低于 0.3 的明细有多少行?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1751,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     92
+    ]
+   ]
+  },
+  {
+   "id": "q16",
+   "tags": "单表/聚合",
+   "question": "每种配送方式各有多少张订单?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: orders_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1800,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "First Class",
+     266
+    ],
+    [
+     "Same Day",
+     89
+    ],
+    [
+     "Second Class",
+     213
+    ],
+    [
+     "Standard Class",
+     299
+    ]
+   ]
+  },
+  {
+   "id": "q17",
+   "tags": "单表/脏数据",
+   "question": "数量小于等于 0 的异常明细有哪些行号?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 1911,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     58
+    ],
+    [
+     62
+    ],
+    [
+     220
+    ]
+   ]
+  },
+  {
+   "id": "q18",
+   "tags": "多表/聚合",
+   "question": "各市场的总利润分别是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2552,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "Africa",
+     27541.85
+    ],
+    [
+     "Asia Pacific",
+     125049.49
+    ],
+    [
+     "Europe",
+     89122.08
+    ],
+    [
+     "LATAM",
+     34749.25
+    ],
+    [
+     "USCA",
+     12277.69
+    ]
+   ]
+  },
+  {
+   "id": "q19",
+   "tags": "多表/时间/枚举陷阱/空结果",
+   "question": "2013 年 3 月亚太市场有多少订单?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: orders_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2499,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     0
+    ]
+   ]
+  },
+  {
+   "id": "q20",
+   "tags": "时间/方言陷阱",
+   "question": "2014 年每个季度的销售额分别是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2932,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     1,
+     93973.17
+    ],
+    [
+     2,
+     125640.86
+    ],
+    [
+     3,
+     92043.8
+    ],
+    [
+     4,
+     143706.09
+    ]
+   ]
+  },
+  {
+   "id": "q21",
+   "tags": "时间/聚合/方言陷阱",
+   "question": "2013 和 2014 两年各自的总销售额是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2422,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "2012",
+     293829.82
+    ],
+    [
+     "2013",
+     352570.33
+    ],
+    [
+     "2014",
+     455363.92
+    ],
+    [
+     "2015",
+     605953.31
+    ]
+   ]
+  },
+  {
+   "id": "q22",
+   "tags": "多表/聚合/排序",
+   "question": "按商品汇总,利润率(总利润除以总销售额)最高的 5 个商品是哪些?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 3033,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "FUR-TA-3760",
+     0.5
+    ],
+    [
+     "OFF-BI-4345",
+     0.5
+    ],
+    [
+     "OFF-FA-5459",
+     0.5
+    ],
+    [
+     "OFF-PA-6497",
+     0.5
+    ],
+    [
+     "TEC-CO-3683",
+     0.5
+    ]
+   ]
+  },
+  {
+   "id": "q23",
+   "tags": "多表/聚合/排序",
+   "question": "哪个商品子类的利润率(总利润除以总销售额)最低?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2669,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     "Supplies",
+     -0.04408907120986104
+    ]
+   ]
+  },
+  {
+   "id": "q24",
+   "tags": "多表/嵌套聚合",
+   "question": "Corporate 客户在 2014 年下了多少张订单,平均每张订单金额是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: orders_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 3428,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     67,
+     1934.624328358209
+    ]
+   ]
+  },
+  {
+   "id": "q25",
+   "tags": "聚合/方言陷阱",
+   "question": "所有明细的销售额中位数是多少?",
+   "match": false,
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0
+   },
+   "latency_ms": 2245,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     1585.115
+    ]
+   ]
+  }
+ ]
+}

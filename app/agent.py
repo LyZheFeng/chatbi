@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .db import run_select
@@ -94,6 +95,7 @@ class ChatbiAgent:
         auto_limit: int = 100,
         self_heal: bool = True,
         max_sql_retries: int = 3,
+        sql_mutator: Callable[[str], str] | None = None,
     ):
         self.llm = llm
         self.conn = conn
@@ -102,6 +104,10 @@ class ChatbiAgent:
         self.auto_limit = auto_limit
         self.self_heal = self_heal
         self.max_sql_retries = max_sql_retries
+        # 故障注入实验用(评估脚本 --chaos):仅改坏每次 run 的第一次 execute_sql,
+        # 生产链路恒为 None
+        self.sql_mutator = sql_mutator
+        self._mutated_once = False
 
     def run(self, question: str) -> AgentResult:
         state = AgentResult()
@@ -140,9 +146,20 @@ class ChatbiAgent:
         step_no = len(state.steps) + 1
         degrade: str | None = None
 
+        raw_args = tc.function.arguments
+        if name == "execute_sql" and self.sql_mutator is not None and not self._mutated_once:
+            self._mutated_once = True
+            try:
+                obj = json.loads(raw_args or "{}")
+                if isinstance(obj.get("sql"), str):
+                    obj["sql"] = self.sql_mutator(obj["sql"])
+                    raw_args = json.dumps(obj, ensure_ascii=False)
+            except json.JSONDecodeError:
+                pass
+
         try:
             text, sql_result = dispatch(
-                self.conn, name, tc.function.arguments, cap=self.cap, auto_limit=self.auto_limit
+                self.conn, name, raw_args, cap=self.cap, auto_limit=self.auto_limit
             )
             if name == "execute_sql" and sql_result is not None:
                 state.result = sql_result  # 记住最近一次成功查询(final_answer 组装表格用)

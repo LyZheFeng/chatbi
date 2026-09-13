@@ -249,3 +249,23 @@ def test_final_answer_bad_sql_keeps_last_result(conn):
     assert r.result.rows == [[4]]  # 保留最近一次成功结果
     assert r.sql == "SELECT FROM WHERE"  # 展示仍是模型自报的
     assert r.error is None
+
+
+def test_sql_mutator_breaks_only_first_attempt(conn):
+    """故障注入:第一次 execute_sql 被改坏表名,模型重试后恢复。"""
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM customers")]),  # 会被改成 customers_typo
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM customers")]),  # 第二次不再改
+        _msg([_tc("final_answer", summary="4 个客户。")]),
+    ])
+    import re
+
+    table_re = re.compile(r"\b(customers|orders|order_items|products|geography)\b")
+    agent = ChatbiAgent(
+        llm, conn, cap=50, auto_limit=10,
+        sql_mutator=lambda sql: table_re.sub(lambda m: m.group(1) + "_typo", sql, count=1),
+    )
+    r = agent.run("多少客户")
+    assert r.error is None and r.result.rows == [[4]]
+    assert [s.ok for s in r.steps] == [False, True, True]
+    assert r.stats["sql_failures"] == 1  # 只坏第一次
