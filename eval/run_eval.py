@@ -3,10 +3,13 @@
 用法:
     .venv/Scripts/python.exe -X utf8 eval/run_eval.py --heal off   # 自愈关
     .venv/Scripts/python.exe -X utf8 eval/run_eval.py --heal on    # 自愈开
+    加 --chaos 注入故障(每题首条 SQL 强制改错表名),量恢复能力。
 
 规则(数字必须全量真实跑出,温度 0):
-- 执行准确率 = agent 最终表格与 gold 表格"值集合"一致(浮点圆整 4 位、行序无关、列数须相同)
+- 执行准确率 = agent 最终表格与 gold 表格"值集合"一致(浮点圆整 2 位、行序无关、列子集投影、
+  单行 gold 答案点包含);gold SQL 不圆整,容差只在判定器一处
 - 模型降级/报错/未产出表格 → 不匹配
+- 出图率 = chart_spec 非空的比例(呈现层参考指标,不进执行准确率口径)
 - 明细 JSON 落 eval/runs/,汇总表追加 eval/results.md
 """
 
@@ -109,6 +112,7 @@ def main() -> None:
         questions = [q for q in questions if q["id"] in wanted]
 
     records, matched, healed_and_matched, degraded = [], 0, 0, 0
+    charted = 0
     latencies: list[int] = []
     for q in questions:
         gold = db.run_select(gold_conn, q["gold"], cap=100_000, auto_limit=100_000)
@@ -118,6 +122,9 @@ def main() -> None:
             resp.error is None
             and table_matches(resp.columns, resp.rows, gold.rows)
         )
+        chart_type = resp.chart_spec["mark"]["type"] if resp.chart_spec else ""
+        if chart_type:
+            charted += 1
         if ok:
             matched += 1
         if resp.error:
@@ -127,13 +134,14 @@ def main() -> None:
         latencies.append(resp.latency_ms)
         records.append(dict(
             id=q["id"], tags=q["tags"], question=q["question"], match=ok,
-            error=resp.error, stats=resp.stats, latency_ms=resp.latency_ms,
+            chart=chart_type, error=resp.error, stats=resp.stats, latency_ms=resp.latency_ms,
             steps=[s.tool for s in resp.steps], sql=resp.sql,
             columns=resp.columns, rows=resp.rows[:20],
             gold_rows=gold.rows[:20],
         ))
         flag = "✓" if ok else "✗"
-        print(f"{flag} {q['id']} [{q['tags']}] {resp.latency_ms}ms attempts={resp.stats.get('sql_attempts', 0)} "
+        print(f"{flag} {q['id']} [{q['tags']}] {resp.latency_ms}ms chart={chart_type or '-'} "
+              f"attempts={resp.stats.get('sql_attempts', 0)} "
               f"fail={resp.stats.get('sql_failures', 0)} refl={resp.stats.get('reflections', 0)}"
               + (f" ERROR={resp.error[:60]}" if resp.error else ""), flush=True)
 
@@ -142,7 +150,7 @@ def main() -> None:
     summary = dict(
         heal=args.heal, date=datetime.now().strftime("%Y-%m-%d %H:%M"), total=total,
         matched=matched, accuracy=round(acc, 4), degraded=degraded,
-        healed_and_matched=healed_and_matched,
+        healed_and_matched=healed_and_matched, charted=charted,
         avg_latency_ms=sum(latencies) // max(len(latencies), 1),
     )
 
@@ -154,14 +162,14 @@ def main() -> None:
 
     mode = ("注入⚡" if args.chaos else "自然") + ("/自愈" + ("开" if args.heal == "on" else "关"))
     print(f"\n=== {mode} === 准确率 {matched}/{total} = {acc:.1%},降级 {degraded},"
-          f"出错后自愈成功 {healed_and_matched},平均延迟 {summary['avg_latency_ms']}ms")
+          f"出错后自愈成功 {healed_and_matched},出图 {charted}/{total},平均延迟 {summary['avg_latency_ms']}ms")
     print(f"明细:{detail}")
 
     results = ROOT / "eval" / "results.md"
     with results.open("a", encoding="utf-8") as f:
         f.write(
             f"| {summary['date']} | {mode} | {matched}/{total} "
-            f"| {acc:.1%} | {degraded} | {healed_and_matched} | {summary['avg_latency_ms']} |\n"
+            f"| {acc:.1%} | {degraded} | {healed_and_matched} | {charted}/{total} | {summary['avg_latency_ms']} |\n"
         )
 
 

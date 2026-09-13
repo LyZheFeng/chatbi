@@ -68,14 +68,59 @@ def test_run_select_rejects_non_select(conn):
         "DELETE FROM orders",
         "DROP TABLE orders",
         "INSERT INTO orders VALUES (1)",
+        "PRAGMA table_info(orders)",
+        "ATTACH DATABASE 'x.db' AS x",
+        "EXPLAIN SELECT 1",
+        "VACUUM",
     ]:
-        with pytest.raises(ValueError, match="只读"):
+        with pytest.raises(ValueError, match="只读|仅允许"):
             run_select(conn, bad)
 
 
 def test_run_select_rejects_multi_statement(conn):
     with pytest.raises(ValueError, match="多条"):
         run_select(conn, "SELECT 1; SELECT 2")
+
+
+def test_token_guard_blocks_dangerous_functions(conn):
+    for bad in [
+        "SELECT load_extension('evil.dll')",
+        "SELECT randomblob(1024)",
+        "SELECT * FROM pragma_table_info('orders')",  # 表值 PRAGMA 函数探测库结构
+        "WITH x AS (SELECT 1) DELETE FROM orders",     # WITH 开头也拦得住后面的写语句
+    ]:
+        with pytest.raises(ValueError, match="护栏|多条|仅允许"):
+            run_select(conn, bad)
+
+
+def test_token_guard_allows_benign_forms(conn):
+    """注释/字符串里的关键字是惰性文本,CASE...END 是合法表达式,不得误杀。"""
+    r = run_select(conn, "SELECT row_id, -- 注释里的 DELETE FROM orders 无害\nrow_id FROM order_items LIMIT 1")
+    assert r.row_count == 1
+    assert run_select(conn, "/* 头部注释 */ SELECT 1 AS v").rows == [[1]]
+    assert run_select(conn, "SELECT 'DROP TABLE orders' AS s").row_count == 1
+    r = run_select(
+        conn,
+        "SELECT CASE WHEN quantity > 0 THEN '正常' ELSE '异常' END AS flag "
+        "FROM order_items WHERE quantity <= 0 LIMIT 3",
+    )
+    assert r.rows and r.rows[0][0] == "异常"
+    # 结尾分号+尾注释:剥掉后正常执行
+    assert run_select(conn, "SELECT 2 AS v; -- done").rows == [[2]]
+
+
+def test_run_select_timeout_interrupts_unbounded_query(conn):
+    """无界 RECURSIVE CTE 是只读连接挡不住的算力攻击,必须被超时掐断。"""
+    import time as _time
+
+    t0 = _time.monotonic()
+    with pytest.raises(ValueError, match="超时"):
+        run_select(
+            conn,
+            "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) SELECT COUNT(*) FROM c",
+            timeout_s=0.3,
+        )
+    assert _time.monotonic() - t0 < 3  # 0.3s 期限 + 回调粒度,远早于 3s
 
 
 def test_run_select_returns_typed_rows(conn):

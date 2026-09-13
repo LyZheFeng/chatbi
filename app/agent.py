@@ -28,6 +28,7 @@ SYSTEM_PROMPT = """你是数据分析 agent(ChatBI),连接一个 SQLite 电商�
 
 SQL 约定:
 - 只写单条 SELECT;日期列为 TEXT 'YYYY-MM-DD',按月汇总用 strftime('%Y-%m', order_date),按季度汇总用 (CAST(strftime('%m', order_date) AS INTEGER) - 1) / 3 + 1;
+- 中位数:非空值排序后,奇数个取正中值,偶数个取中间两值的平均(如再套一层 AVG),最终只返回一个数值;
 - 枚举列(market / segment / category / sub_category / ship_mode / order_priority)的实际取值已写在 DDL 注释里,过滤条件直接照抄注释中的值,不要自造缩写(如把 Asia Pacific 写成 APAC);
 - 明细在 order_items,需要订单/客户/商品信息时按外键 JOIN;geography 只能经 customers 的 (country, region) 关联到达;
 - 执行报错时读错误信息修正 SQL 重试;结果为空或异常(全 0、大量 NULL)时先检查 JOIN 条件和过滤条件,再考虑是否数据本身如此。
@@ -60,6 +61,8 @@ def _error_hint(msg: str) -> str:
         return "\n[提示] SQLite 没有这个函数,日期处理用 strftime() / date()。"
     if "only allows" in m or "只读" in m or "多条" in m:
         return "\n[提示] 只允许单条 SELECT 只读查询。"
+    if "超时" in msg:
+        return "\n[提示] 查询超时说明扫描量过大:加 WHERE 过滤、缩小时间范围或加 LIMIT,不要无界 JOIN/递归。"
     return ""
 
 
@@ -96,6 +99,7 @@ class ChatbiAgent:
         auto_limit: int = 100,
         self_heal: bool = True,
         max_sql_retries: int = 3,
+        sql_timeout_s: float = 5.0,
         sql_mutator: Callable[[str], str] | None = None,
     ):
         self.llm = llm
@@ -105,6 +109,7 @@ class ChatbiAgent:
         self.auto_limit = auto_limit
         self.self_heal = self_heal
         self.max_sql_retries = max_sql_retries
+        self.sql_timeout_s = sql_timeout_s
         # 故障注入实验用(评估脚本 --chaos):仅改坏每次 run 的第一次 execute_sql,
         # 生产链路恒为 None
         self.sql_mutator = sql_mutator
@@ -160,7 +165,8 @@ class ChatbiAgent:
 
         try:
             text, sql_result = dispatch(
-                self.conn, name, raw_args, cap=self.cap, auto_limit=self.auto_limit
+                self.conn, name, raw_args, cap=self.cap, auto_limit=self.auto_limit,
+                timeout_s=self.sql_timeout_s,
             )
             if name == "execute_sql" and sql_result is not None:
                 state.result = sql_result  # 记住最近一次成功查询(final_answer 组装表格用)
@@ -206,7 +212,7 @@ class ChatbiAgent:
                 # 自报 SQL 本地重执行,保证"展示的 SQL ↔ 展示的表格"一致:
                 # 模型可能在最终计数后又跑过探查性查询,直接用"最近一次结果"会对不上结论
                 try:
-                    state.result = run_select(self.conn, args.sql, cap=self.cap, auto_limit=self.auto_limit)
+                    state.result = run_select(self.conn, args.sql, cap=self.cap, auto_limit=self.auto_limit, timeout_s=self.sql_timeout_s)
                 except (ValueError, sqlite3.Error):
                     pass  # 自报 SQL 跑不动时保留最近一次成功结果
             elif state.result is not None:

@@ -1,15 +1,18 @@
 """SQLite 只读访问:连接、schema 导出、带护栏的 SELECT 执行。
 
-护栏(基础版,Day 21 再补超时/完整白名单):
-- 连接只读(mode=ro),物理上写不进库
-- 仅接受单条 SELECT / WITH 语句
-- 未写 LIMIT 的 SQL 自动补默认上限;返回行数超过 cap 时截断并标记
+护栏(Day 21 加固后,三层):
+- 连接只读(mode=ro),物理上写不进库——最后防线;
+- token 级白名单:词法扫描(字符串/引号标识符/注释各自成 token,不会被关键字伪装绕过),
+  首 token 必须 SELECT/WITH、禁止分号拼多条、禁 PRAGMA/ATTACH/EXPLAIN 等语句关键字、
+  禁 load_extension/randomblob/pragma_* 等危险函数调用;
+- 执行超时(progress_handler 按秒掐断)+ 未写 LIMIT 自动补上限 + cap 截断——防资源耗尽。
 """
 
 from __future__ import annotations
 
 import re
 import sqlite3
+import time
 from pathlib import Path
 
 from .schemas import SqlResult
@@ -23,7 +26,59 @@ ER_DIAGRAM = """-- 表关系(→ 为外键指向;事实表是 order_items,一行
 -- orders.customer_id → customers.customer_id;customers.(country, region) → geography.(country, region)
 -- geography 无独立入口,须经 customers 关联到达;customers.region 缺失的客户关联不上 geography"""
 
-_SELECT_ONLY = re.compile(r"^(select|with)\b", re.IGNORECASE)
+# ---------- token 级 SQL 护栏(Day 21) ----------
+
+# 词法:空白/行注释/块注释/字符串/三种引号标识符/词/其他单字符,各成一个 token。
+_TOKEN_RE = re.compile(
+    r"""\s+ | --[^\n]* | /\*.*?\*/ | '(?:[^']|'')*' | "(?:[^"]|"")*" | `[^`]*` | \[[^\]]*\] | [A-Za-z_][A-Za-z0-9_$]* | .""",
+    re.VERBOSE | re.DOTALL,
+)
+_WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
+
+# 语句级关键字:只读库里多数本来写不进去,但 ATTACH/PRAGMA/EXPLAIN 仍可能越界,一律前置拒绝。
+_FORBIDDEN_KEYWORDS = {
+    "PRAGMA", "ATTACH", "DETACH", "EXPLAIN", "VACUUM", "ANALYZE", "REINDEX",
+    "BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE",
+    "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER",
+}
+# 危险函数:扩展加载 / 大内存分配 / 文件读写(shell 函数)/ 未知副作用一并不赌。
+_FORBIDDEN_FUNCS = {
+    "LOAD_EXTENSION", "RANDOMBLOB", "ZEROBLOB", "READFILE", "WRITEFILE", "EDIT",
+}
+
+
+def _guard_sql(sql: str) -> str:
+    """词法校验并返回去掉结尾分号/注释的干净 SQL;不合法抛 ValueError(消息回传模型自愈)。"""
+    toks = [(m.group(0), m.span()) for m in _TOKEN_RE.finditer(sql)]
+
+    def meaningful():
+        return [(t, s) for t, s in toks if not (t.isspace() or t.startswith("--") or t.startswith("/*"))]
+
+    meat = meaningful()
+    if not meat or not _WORD_RE.fullmatch(meat[0][0]) or meat[0][0].upper() not in ("SELECT", "WITH"):
+        raise ValueError("仅允许 SELECT / WITH 开头的只读查询")
+
+    # 结尾若是分号则连同其后注释一起剥掉;剥完仍剩分号 = 多条语句
+    cut = len(sql)
+    if meat[-1][0] == ";":
+        cut = meat[-1][1][0]
+        meat = meat[:-1]
+    if any(t == ";" for t, _ in meat):
+        raise ValueError("不允许一次执行多条语句")
+
+    for i, (t, _) in enumerate(meat):
+        if not _WORD_RE.fullmatch(t):
+            continue
+        up = t.upper()
+        if up in _FORBIDDEN_KEYWORDS:
+            raise ValueError(f"只读护栏:禁止 {up}")
+        if up in _FORBIDDEN_FUNCS or up.startswith("PRAGMA_"):
+            nxt = meat[i + 1][0] if i + 1 < len(meat) else ""
+            if nxt == "(" or up.startswith("PRAGMA_"):
+                raise ValueError(f"只读护栏:禁止函数 {up}")
+    return sql[:cut].strip()
+
+
 _HAS_LIMIT = re.compile(r"\blimit\b", re.IGNORECASE)
 
 
@@ -60,17 +115,33 @@ def schema_text(conn: sqlite3.Connection, tables: list[str] | None = None) -> st
 
 
 def run_select(
-    conn: sqlite3.Connection, sql: str, *, cap: int = 200, auto_limit: int = 100
+    conn: sqlite3.Connection, sql: str, *, cap: int = 200, auto_limit: int = 100,
+    timeout_s: float = 5.0,
 ) -> SqlResult:
-    """执行一条受护栏保护的 SELECT,永不抛异常以外的东西(错误由调用方格式化回传)。"""
-    sql = sql.strip().rstrip(";").strip()
-    if not _SELECT_ONLY.match(sql):
-        raise ValueError("仅允许 SELECT / WITH 开头的只读查询")
-    if ";" in sql:
-        raise ValueError("不允许一次执行多条语句")
-    executed = sql if _HAS_LIMIT.search(sql) else f"{sql}\nLIMIT {auto_limit}"
-    cur = conn.execute(executed)
-    fetched = cur.fetchmany(cap + 1)
+    """执行一条受护栏保护的 SELECT,永不抛异常以外的东西(错误由调用方格式化回传)。
+
+    timeout_s 用 progress_handler 实现:虚拟机每跑 N 条指令回调一次,超过期限返回非零
+    触发 SQLITE_INTERRUPT,防 RECURSIVE CTE / 笛卡尔积一类资源耗尽(连接只读挡不住算力攻击)。
+    """
+    guarded = _guard_sql(sql.strip())
+    executed = guarded if _HAS_LIMIT.search(guarded) else f"{guarded}\nLIMIT {auto_limit}"
+    deadline = time.monotonic() + timeout_s
+
+    def _abort() -> int:
+        return 1 if time.monotonic() > deadline else 0
+
+    conn.set_progress_handler(_abort, 10_000)
+    try:
+        cur = conn.execute(executed)
+        fetched = cur.fetchmany(cap + 1)
+    except sqlite3.OperationalError as e:
+        if "interrupt" in str(e).lower():
+            raise ValueError(
+                f"查询超时(>{timeout_s:.0f}s):扫描量过大,请加 WHERE 过滤、减少 JOIN 或加 LIMIT 缩小范围"
+            ) from e
+        raise
+    finally:
+        conn.set_progress_handler(None, 0)
     truncated = len(fetched) > cap
     rows = [list(r) for r in fetched[:cap]]
     return SqlResult(

@@ -73,7 +73,7 @@ class ToolError(Exception):
     """工具执行失败(参数不合法或 SQL 报错)。消息会回传给模型供其修正。"""
 
 
-def dispatch(conn: sqlite3.Connection, name: str, arguments: str, *, cap: int = 200, auto_limit: int = 100) -> tuple[str, SqlResult | None]:
+def dispatch(conn: sqlite3.Connection, name: str, arguments: str, *, cap: int = 200, auto_limit: int = 100, timeout_s: float = 5.0) -> tuple[str, SqlResult | None]:
     """执行一个工具调用,返回 (给模型看的结果文本, 最近的 SqlResult)。
 
     校验/执行失败抛 ToolError,由 agent 捕获——错误信息原样回传模型,
@@ -85,7 +85,7 @@ def dispatch(conn: sqlite3.Connection, name: str, arguments: str, *, cap: int = 
             return db.schema_text(conn, args.tables), None
         if name == "execute_sql":
             args = ExecuteSqlArgs(**_parse(arguments))
-            result = db.run_select(conn, args.sql, cap=cap, auto_limit=auto_limit)
+            result = db.run_select(conn, args.sql, cap=cap, auto_limit=auto_limit, timeout_s=timeout_s)
             return _format_result(result), result
         if name == "final_answer":
             FinalAnswerArgs(**_parse(arguments))  # 只做校验,汇总在 agent 层完成

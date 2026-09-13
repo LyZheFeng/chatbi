@@ -58,6 +58,7 @@ def get_service() -> ChatbiService:
             auto_limit=s.auto_limit,
             self_heal=s.self_heal,
             max_sql_retries=s.max_sql_retries,
+            sql_timeout_s=s.sql_timeout_s,
         )
 
     return ChatbiService(factory)
