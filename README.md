@@ -112,6 +112,19 @@ agent 编排(final_answer 循环、反思提示)留在客户端——server 只�
 护栏错误回传、**50 题 gold SQL 经 MCP 通道与本地直连逐题结果一致**;MCP Inspector CLI 与
 Web UI 均实测通过(tools/resources/prompts 三个页签 + 错误注入)。
 
+### 双 server 演示 client(`scripts/mcp_client_demo.py`,项目 4 Day 24)
+
+一次会话同时拉起 chatbi-db 与 rag-qa-docs(文档检索 server,见 rag-qa 仓)两个 stdio
+server,工具按 `server名.工具名` 命名空间去重后喂给 vLLM(Qwen3.8-27B function calling,
+temperature=0)做 agent 编排——编排留在客户端,server 只提供工具能力。内置三问实测
+(答案已与直连 SQL 核验一致):数据库题、文档题(编号引用)、**混合题:同一循环里先
+`rag-qa-docs.search` 查文档、再 `chatbi-db.get_schema`→`execute_sql` 数订单**:
+
+```bash
+.venv/Scripts/python.exe -X utf8 scripts/mcp_client_demo.py           # 内置 3 问
+.venv/Scripts/python.exe -X utf8 scripts/mcp_client_demo.py "任意问题"  # 自定义
+```
+
 ## 计划(详见 PROGRESS.md)
 
 Day 19 ✅ Schema 管理 → Day 20 ✅ 图表 + 解读 → Day 21 ✅ 安全加固 + 50 题评估

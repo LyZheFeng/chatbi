@@ -2,7 +2,7 @@
 
 > 每阶段收口更新本文件。新会话从这里接力。
 
-## 状态:项目 4 Day 22 完成(2026-09-14,chatbi 查询 MCP server + Inspector 调通,84 例全绿)→ 新会话从「下一步」第 1 条起步
+## 状态:项目 4 MCP 化(Day 22-24)完成(2026-09-14,双 server + Inspector + 演示 client;两仓测试 84/77 例全绿)→ 新会话从「下一步」第 1 条(Day 25-26)起步
 
 ## 已定决策(开工即沿用,免重复讨论)
 
@@ -98,18 +98,24 @@
 - **验证**:新增 `tests/test_mcp_server.py` 3 例(真实 stdio 子进程,与 Inspector 同入口 `python -m app.mcp_server`),全量 84 例绿;**50 题 gold SQL 经 MCP vs 本地直连逐题一致**(交接单点名的验证资产);Inspector CLI(tools/list、tools/call 成功+护栏错误、resources/read、prompts/get)与 Web UI 均实测通过,中文 UTF-8 落文件验字节无恙(终端乱码纯 Git Bash 渲染)
 - **配置**:`scripts/mcp-inspector.json`(Inspector 的 server 配置,绝对路径免 cwd 依赖);requirements.txt + lock 增 `mcp`;README 新增「MCP 工具设计」节 + 本地运行第 4 步;踩坑 4 条进 `notes/pitfalls.md`(2.x 改名 / ToolError 语义 / Inspector CLI 裸拼参数被吞 / 验字节不验肉眼)
 
+## Day 24 完成情况(2026-09-14,项目 4:双 server 演示 client;rag-qa server 见其仓库 PROGRESS)
+
+- **`scripts/mcp_client_demo.py`**(chatbi venv,依赖 mcp+openai):一次会话同时拉起 chatbi-db 与 rag-qa-docs 两个 stdio server(各自 venv 绝对路径,免 cwd 依赖),工具按 `server名.工具名` 命名空间去重喂给 vLLM(Qwen3.8-27B function calling,temperature=0,enable_thinking off,8 步上限);错误结果(isError)文本原样回传模型,保留自愈通道
+- **实测 3 问全对并核验**:数据库题(2014 top3 国家 Australia/China/France 及金额与直连 SQL 一致)、文档题(请求体模型,编号引用)、混合题(同一循环先 rag-qa-docs.search 查依赖注入、再 chatbi-db.get_schema→execute_sql 得 2013 Consumer 100 张订单,与直连一致);rag-qa 子进程 env 加 TQDM_DISABLE=1 防进度条污染演示输出
+- README「MCP 工具设计」节补 client 演示小节
+
 ## 范围(按计划)
 
 Day 15-16 ✅ 数据+基础链路 → Day 17-18 ✅ 自愈循环(四组对比数字见 `eval/results.md`)→
-Day 19 ✅ Schema 管理(枚举动态入 DDL/表关系图,92.0%→96.0%)→ Day 20 ✅ 图表+解读(Vega-Lite 选型/模板化解读/脏数据呈现约定)→ Day 21 ✅ 安全加固(token 白名单/超时)+ 50 题评估(自然 100%,注入 100% 恢复)→ **tag `v0.1-chatbi` 已完成**。
+Day 19 ✅ Schema 管理(枚举动态入 DDL/表关系图,92.0%→96.0%)→ Day 20 ✅ 图表+解读(Vega-Lite 选型/模板化解读/脏数据呈现约定)→ Day 21 ✅ 安全加固(token 白名单/超时)+ 50 题评估(自然 100%,注入 100% 恢复)→ **tag `v0.1-chatbi` 已完成** →
+Day 22 ✅ MCP 化(数据库查询 server)→ Day 24 ✅ 双 server 演示 client(rag-qa 检索 server 同日完成,见其仓库)。
 
 ## 下一步(新会话)
 
-项目 4 Day 22 已收口(chatbi 查询 MCP server + Inspector 调通)。后续:
-1. Day 23:收尾打磨——Inspector Web UI 手动走查截图(可选)、README MCP 节复核;若有余量,预研 Day 24 最小 client 的多 server 会话结构;
-2. Day 24:rag-qa 文档检索 MCP server(包 `app/hybrid.py` 检索栈出 `search(query, top_k)`)+ 最小 client 演示(一次会话连两个 server,agent 编排用内网 vLLM);
-3. Day 25-26:统一 Landing 页(`D:\LLM_training\portfolio\`,不建仓库)+ 2 分钟 demo(录自愈纠错);
-4. Day 27-28:简历段落 + 面试题(材料从两项目 README/results/pitfalls 提炼)。
+项目 4 的 MCP 化(Day 22-24)已全部收口:两个 server + Inspector 调通 + 双 server 演示 client。后续:
+1. Day 25-26:统一 Landing 页(`D:\LLM_training\portfolio\`,不建仓库)+ 2 分钟 demo(client demo 三问是底稿;自愈纠错那一刻用注错 SQL 场景或 `scripts/demo_ask.py`);
+2. Day 27-28:简历段落 + 面试题(材料从两项目 README/results/pitfalls 提炼;MCP 高频题素材已就位);
+3. 可选:Inspector Web UI 手动走查截图、双仓 README 交叉链接复核、推送(git push,看代理)。
 
 项目 2 遗留的可选后续(复盘/公开仓库)不变。
 
