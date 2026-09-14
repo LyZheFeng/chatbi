@@ -11,15 +11,18 @@
   已知脏数据说明)封装成模板,任何 MCP 客户端拿到的是同一套口径。
 
 运行(stdio transport):`python -m app.mcp_server`。
-本 server 不依赖 LLM 配置(llm_* 环境变量被忽略),只需要数据库路径与护栏参数。
+本 server 不依赖 LLM 配置(llm_* 环境变量被忽略),只需要数据库路径与护栏参数;
+DB_PATH 环境变量只能指向项目 data/ 目录内的库文件(启动时校验,防不可信客户端配置借 env 换库)。
 """
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import db
@@ -37,6 +40,21 @@ class McpSettings(BaseSettings):
     sql_row_cap: int = 200    # 与 app/config.Settings 同名同默认,.env 里一份配置两边生效
     auto_limit: int = 100
     sql_timeout_s: float = 5.0
+
+    @field_validator("db_path")
+    @classmethod
+    def _db_path_confined_to_data_dir(cls, v: str) -> str:
+        """db_path 只能在项目 data/ 目录内换文件,不得指向宿主机任意 SQLite。
+
+        MCP 客户端配置常常替 server 子进程设 env(如 .mcp.json / Inspector 的 env 字段),
+        客户端不可信时可借 DB_PATH 诱导 server 去读别处的库。resolve() 后前缀校验,
+        顺带挡掉 ../ 逃逸与指向目录外的软链;normcase 兼容 Windows 大小写不敏感路径。
+        """
+        data_dir = os.path.normcase(str((ROOT / "data").resolve()))
+        resolved = os.path.normcase(str(Path(v).resolve()))
+        if resolved != data_dir and not resolved.startswith(data_dir + os.sep):
+            raise ValueError(f"db_path 必须位于项目 data/ 目录内(收到:{v})")
+        return v
 
 
 @lru_cache(maxsize=1)
@@ -137,6 +155,7 @@ mcp = _build_server()
 
 
 def main() -> None:
+    get_mcp_settings()  # 启动即校验 db_path 等配置,非法直接失败,不拖到首次工具调用
     mcp.run("stdio")
 
 

@@ -2,7 +2,7 @@
 
 > 每阶段收口更新本文件。新会话从这里接力。
 
-## 状态:项目 4 MCP 化(Day 22-24)完成(2026-09-14,双 server + Inspector + 演示 client;两仓测试 84/77 例全绿)→ 新会话从「下一步」第 1 条(Day 25-26)起步
+## 状态:Day 25-26 Landing 页完成(2026-09-14,`D:\LLM_training\portfolio\` 统一入口;demo 录制留给用户)→ 新会话从「下一步」第 1 条(Day 27-28)起步
 
 ## 已定决策(开工即沿用,免重复讨论)
 
@@ -97,6 +97,7 @@
 - **错误即接口**:护栏/SQL 错误显式转 `ToolError` → `isError=true` + 原始消息完整回传(自愈信号不丢);其他异常由 SDK mask 不泄内部细节
 - **验证**:新增 `tests/test_mcp_server.py` 3 例(真实 stdio 子进程,与 Inspector 同入口 `python -m app.mcp_server`),全量 84 例绿;**50 题 gold SQL 经 MCP vs 本地直连逐题一致**(交接单点名的验证资产);Inspector CLI(tools/list、tools/call 成功+护栏错误、resources/read、prompts/get)与 Web UI 均实测通过,中文 UTF-8 落文件验字节无恙(终端乱码纯 Git Bash 渲染)
 - **配置**:`scripts/mcp-inspector.json`(Inspector 的 server 配置,绝对路径免 cwd 依赖);requirements.txt + lock 增 `mcp`;README 新增「MCP 工具设计」节 + 本地运行第 4 步;踩坑 4 条进 `notes/pitfalls.md`(2.x 改名 / ToolError 语义 / Inspector CLI 裸拼参数被吞 / 验字节不验肉眼)
+- **外部评审修复(codex 评审 7.5/10,同日)**:两个 P1 落地——① 引号形式危险函数绕过:`"randomblob"(..)` / `[zeroblob](..)` / `` `fn`(..) `` 实测可执行且可过词法黑名单,修为"任何 token 后跟 `(` 即按去引号后的真实名字查危险函数"(引号版 `pragma_table_info` 一并拦);② `DB_PATH` env 可指向任意库:修为 resolve+normcase 前缀校验锁死 data/ 目录、`main()` 启动即校验。新增回归 2 例(引号函数 8 形式 / 路径逃逸 3 形式),全量 86 例绿;P2 按评审共识暂不做(错误原样回传是自愈通道、stdio 本地无认证需求,改远程 HTTP 时再补),踩坑 2 条进 pitfalls;**复评 8.5/10(同日)**:两项修复验证通过、无新高危,残余风险三项(P2)与上述暂缓项一致,另建议 data/ 目录存在多用户写入时把 db_path 进一步固定到单一文件——当前单机开发环境不触发,暂不收紧
 
 ## Day 24 完成情况(2026-09-14,项目 4:双 server 演示 client;rag-qa server 见其仓库 PROGRESS)
 
@@ -104,17 +105,26 @@
 - **实测 3 问全对并核验**:数据库题(2014 top3 国家 Australia/China/France 及金额与直连 SQL 一致)、文档题(请求体模型,编号引用)、混合题(同一循环先 rag-qa-docs.search 查依赖注入、再 chatbi-db.get_schema→execute_sql 得 2013 Consumer 100 张订单,与直连一致);rag-qa 子进程 env 加 TQDM_DISABLE=1 防进度条污染演示输出
 - README「MCP 工具设计」节补 client 演示小节
 
+## Day 25-26 完成情况(2026-09-14,统一 Landing 页;demo 录制留给用户)
+
+- **`D:\LLM_training\portfolio\`**(不建仓库):`index.html` 纯静态单文件,内嵌 CSS、零外部依赖(系统字体栈,离线双击即开,日后可直接挂 GitHub Pages);`assets/` 拷贝 chatbi 三张 UI 截图(ui-line/ui-bar/ui-pie)
+- **页面结构**:hero(组合定位 + 关键数字带:4.41/5、100%、0%→100% 恢复、2+1 MCP、161 例测试)→ 项目1 rag-qa(链路流程图 + 6 指标 + 版本演进表含两次负结果 + 关键读数 + 工程要点)→ 项目2 chatbi(自愈三条件对比 + SQL 护栏三层 + 图表解读约定 + 3 截图)→ 项目4 MCP(client→双 server 拓扑 + tools/resources/prompts 三原语 + 等价性验证)→ 工程方法论 6 卡(尺子先于优化/尺子也要审/负结果收口/离线测试/踩坑笔记/纪律)→ demo 区
+- **数字纪律延续**:页面所有数字逐条取自两仓 README/PROGRESS,无一处新造
+- **demo 留位**(用户自录):demo 区写了 2 分钟四段大纲(数据库题/文档题/混合题+自愈纠错/图表收尾),`<video>` 已留 HTML 注释——录好放 `portfolio/assets/demo.mp4` 取消注释即嵌入
+- **验收**:本地 `http.server` 起站,浏览器逐区块截图检查(hero/p1/p2/截图网格/p4/方法论/demo/footer),修 statband 第 4 格标签折行 1 处;三张截图加载正常
+
 ## 范围(按计划)
 
 Day 15-16 ✅ 数据+基础链路 → Day 17-18 ✅ 自愈循环(四组对比数字见 `eval/results.md`)→
 Day 19 ✅ Schema 管理(枚举动态入 DDL/表关系图,92.0%→96.0%)→ Day 20 ✅ 图表+解读(Vega-Lite 选型/模板化解读/脏数据呈现约定)→ Day 21 ✅ 安全加固(token 白名单/超时)+ 50 题评估(自然 100%,注入 100% 恢复)→ **tag `v0.1-chatbi` 已完成** →
-Day 22 ✅ MCP 化(数据库查询 server)→ Day 24 ✅ 双 server 演示 client(rag-qa 检索 server 同日完成,见其仓库)。
+Day 22 ✅ MCP 化(数据库查询 server)→ Day 24 ✅ 双 server 演示 client(rag-qa 检索 server 同日完成,见其仓库)→
+Day 25-26 ✅ 统一 Landing 页(`D:\LLM_training\portfolio\`,demo 录制留给用户)。
 
 ## 下一步(新会话)
 
-项目 4 的 MCP 化(Day 22-24)已全部收口:两个 server + Inspector 调通 + 双 server 演示 client。后续:
-1. Day 25-26:统一 Landing 页(`D:\LLM_training\portfolio\`,不建仓库)+ 2 分钟 demo(client demo 三问是底稿;自愈纠错那一刻用注错 SQL 场景或 `scripts/demo_ask.py`);
-2. Day 27-28:简历段落 + 面试题(材料从两项目 README/results/pitfalls 提炼;MCP 高频题素材已就位);
+Day 25-26 的 Landing 页已完成:统一入口 + demo 大纲与嵌入点就位,视频用户自录。后续:
+1. Day 27-28:简历段落 + 面试题(材料从两项目 README/results/pitfalls 提炼;MCP 高频题素材已就位);
+2. 用户自录 2 分钟 demo 后放 `portfolio/assets/demo.mp4`,取消 index.html 中 `<video>` 注释即嵌入;
 3. 可选:Inspector Web UI 手动走查截图、双仓 README 交叉链接复核、推送(git push,看代理)。
 
 项目 2 遗留的可选后续(复盘/公开仓库)不变。

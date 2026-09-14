@@ -105,6 +105,26 @@ def test_execute_sql_and_guardrail_over_stdio():
     run_over_stdio(scenario)
 
 
+def test_db_path_confined_to_data_dir():
+    """评审 P1:DB_PATH 只能指向项目 data/ 目录内的库,不能被 env 指到宿主机任意 SQLite
+    (MCP 客户端配置常替 server 子进程设 env,客户端不可信时可借此换库)。"""
+    from pydantic import ValidationError
+
+    from app.mcp_server import ROOT, McpSettings
+
+    outside = [
+        str(ROOT.parent / "elsewhere.db"),                      # 项目外
+        str(ROOT / "secret.db"),                                 # 项目内但 data/ 外
+        str(ROOT / "data" / ".." / "escape.db"),                 # ../ 相对路径逃逸
+    ]
+    for bad in outside:
+        with pytest.raises(ValidationError):
+            McpSettings(db_path=bad)
+
+    s = McpSettings(db_path=str(ROOT / "data" / "chatbi.db"))    # 目录内换文件允许
+    assert s.db_path.endswith("chatbi.db")
+
+
 @pytest.mark.skipif(not REAL_DB.exists(), reason="需要真实 data/chatbi.db(gold SQL 针对真实数据)")
 def test_gold_sql_parity_mcp_vs_local():
     """50 题 gold SQL:经 MCP execute_sql 与本地 db.run_select 逐题结果一致。"""

@@ -81,3 +81,8 @@
 - **工具异常默认被 SDK mask,自愈信号会丢** → 护栏抛的 `ValueError: 仅允许 SELECT…` 到客户端只剩 "Error executing tool execute_sql"(2.x 故意 mask 非 ToolError 异常防泄漏内部细节);错误消息是模型修正 SQL 的输入,必须显式 catch 后 `raise ToolError(msg)` 走 isError=true 完整回传——`UnexpectedToolError`(mask)与 `ToolError`(透传)的分工是 SDK 的安全设计,不是 bug,自定义工具要把"预期内错误"归到 ToolError。
 - **Inspector CLI 裸拼命令行参数会被吞** → `inspector --cli python -m app.mcp_server` 里 `-m` 被 commander 当成自己的 flag,server 子进程收到垃圾输入、把 JSON 里的 `true` 当 Python 字面量执行报 NameError;改用 `--config` JSON(command/args/cwd 全显式)一次通 → stdio server 调试一律配置文件起步,别在命令行裸拼参数。
 - **Git Bash 管道里中文 JSON "乱码"是渲染不是数据** → Inspector 部分输出在终端显示为乱码,重定向到文件后 Python 按 UTF-8 解码完全正常(`-- 表关系(→ 为外键指向…)` 一字不差)→ 判断编码问题永远验字节不验肉眼,环境老坑在新工具上复发。
+
+## 2026-09-14 · Day 22 外部评审修复(codex 复现)
+
+- **词法黑名单只查 word token,引号标识符是函数调用的合法衣装** → codex 实测 `SELECT "randomblob"(1e8)`、`[randomblob](..)`、`` `randomblob`(..) `` 在 SQLite 里都会真实执行,而护栏循环对非 word token 直接 `continue`,三种形式全部放行(引号版 `pragma_table_info` 同漏);修法:任何 token 后跟 `(` 即按"函数调用位"处理,去引号还原真实名字再查黑名单(SQLite 标识符四种引号 + 双写转义都还原),词法护栏的教训:**绕过不在"写了什么关键字",在"同一个名字有多少种写法"**。
+- **env 可配的路径就是攻击面** → `DB_PATH` 环境变量能把 MCP server 指向宿主机任意 SQLite 文件,而 MCP 客户端配置(.mcp.json / Inspector env 字段)常常替 server 子进程设 env,客户端不可信时等于借它换库;修法:`resolve()` + `normcase()` 前缀校验把 db_path 锁死在项目 data/ 目录内、启动即校验(main 先取 settings 再 run)——凡"路径/URL 进 env"的服务都该问一句:配这个 env 的人和服务信任的是同一个人吗。

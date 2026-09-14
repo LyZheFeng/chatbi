@@ -132,6 +132,26 @@ def test_token_guard_blocks_dangerous_functions(conn):
             run_select(conn, bad)
 
 
+def test_token_guard_blocks_quoted_function_names(conn):
+    """评审 P1(codex 复现):SQLite 接受 "fn"(..) / [fn](..) / `fn`(..) 的引号函数调用,
+    实测会真实执行;危险函数必须按去引号后的名字拦,词法黑名单不能只看 word token。
+    """
+    for bad in [
+        'SELECT "randomblob"(1024)',
+        "SELECT [randomblob](1024)",
+        "SELECT `randomblob`(1024)",
+        'SELECT "ZEROBLOB"(1024)',                     # 大小写无关
+        "SELECT 'randomblob'(1024)",                   # 字符串字面量跟 '(' 同按名字拦(保守)
+        'SELECT * FROM "pragma_table_info"(\'orders\')',
+        'SELECT "load_extension"(\'evil.dll\')',
+        'SELECT [randomblob] /*注释*/ (1024)',          # 中间夹注释也拦得住(meat 邻接判定)
+    ]:
+        with pytest.raises(ValueError, match="护栏"):
+            run_select(conn, bad)
+    # 引号标识符做普通列名/别名不受影响
+    assert run_select(conn, 'SELECT "row_id" AS id FROM order_items LIMIT 1').row_count == 1
+
+
 def test_token_guard_allows_benign_forms(conn):
     """注释/字符串里的关键字是惰性文本,CASE...END 是合法表达式,不得误杀。"""
     r = run_select(conn, "SELECT row_id, -- 注释里的 DELETE FROM orders 无害\nrow_id FROM order_items LIMIT 1")

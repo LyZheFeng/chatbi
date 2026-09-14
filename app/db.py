@@ -4,7 +4,8 @@
 - 连接只读(mode=ro),物理上写不进库——最后防线;
 - token 级白名单:词法扫描(字符串/引号标识符/注释各自成 token,不会被关键字伪装绕过),
   首 token 必须 SELECT/WITH、禁止分号拼多条、禁 PRAGMA/ATTACH/EXPLAIN 等语句关键字、
-  禁 load_extension/randomblob/pragma_* 等危险函数调用;
+  禁 load_extension/randomblob/pragma_* 等危险函数调用——函数名按去引号后的真实名字判定,
+  "fn"(..) / [fn](..) / `fn`(..) 这类引号形式的调用同样拦截;
 - 执行超时(progress_handler 按秒掐断)+ 未写 LIMIT 自动补上限 + cap 截断——防资源耗尽。
 """
 
@@ -47,6 +48,20 @@ _FORBIDDEN_FUNCS = {
 }
 
 
+def _unquote_identifier(tok: str) -> str:
+    """去掉标识符引号并还原内部转义;非引号 token 原样返回。
+
+    SQLite 的函数名允许引号形式(实测 "fn"(..) / [fn](..) / `fn`(..) 都会执行),
+    危险函数检查必须按去引号后的真实名字做,否则词法黑名单可被引号绕过。
+    """
+    if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in ('"', "'", "`"):
+        q = tok[0]
+        return tok[1:-1].replace(q + q, q)
+    if len(tok) >= 2 and tok[0] == "[" and tok[-1] == "]":
+        return tok[1:-1]
+    return tok
+
+
 def _guard_sql(sql: str) -> tuple[str, bool]:
     """词法校验,返回 (去掉结尾分号/注释的干净 SQL, 是否含真正的 LIMIT 子句)。
 
@@ -72,7 +87,13 @@ def _guard_sql(sql: str) -> tuple[str, bool]:
 
     has_limit = False
     for i, (t, _) in enumerate(meat):
+        nxt = meat[i + 1][0] if i + 1 < len(meat) else ""
         if not _WORD_RE.fullmatch(t):
+            # 引号标识符后跟 '(' 即函数调用位,按去引号后的名字查危险函数
+            if nxt == "(":
+                up = _unquote_identifier(t).upper()
+                if up in _FORBIDDEN_FUNCS or up.startswith("PRAGMA_"):
+                    raise ValueError(f"只读护栏:禁止函数 {up}")
             continue
         up = t.upper()
         if up == "LIMIT":
@@ -80,7 +101,6 @@ def _guard_sql(sql: str) -> tuple[str, bool]:
         if up in _FORBIDDEN_KEYWORDS:
             raise ValueError(f"只读护栏:禁止 {up}")
         if up in _FORBIDDEN_FUNCS or up.startswith("PRAGMA_"):
-            nxt = meat[i + 1][0] if i + 1 < len(meat) else ""
             if nxt == "(" or up.startswith("PRAGMA_"):
                 raise ValueError(f"只读护栏:禁止函数 {up}")
     return sql[:cut].strip(), has_limit
