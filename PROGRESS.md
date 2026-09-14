@@ -2,7 +2,7 @@
 
 > 每阶段收口更新本文件。新会话从这里接力。
 
-## 状态:项目 2 收口(2026-09-13,Day 21 完成,tag `v0.1-chatbi` 已推送)→ 新会话从 PROGRESS 复盘/公开仓库决策起步
+## 状态:项目 4 Day 22 完成(2026-09-14,chatbi 查询 MCP server + Inspector 调通,84 例全绿)→ 新会话从「下一步」第 1 条起步
 
 ## 已定决策(开工即沿用,免重复讨论)
 
@@ -90,6 +90,14 @@
 - 其余四条维持路线图判断:多 worker 限流/闸门不共享(README 已标注,正式部署走网关/Redis)、请求级取消(需异步化改造)、语义校验/结构化查询意图(架构级,单独立项)、Prometheus/异步队列(部署层)
 - 测试 77 例全绿
 
+## Day 22 完成情况(2026-09-14,项目 4:chatbi 查询 MCP server)
+
+- **选型(开工与用户确认)**:官方 `mcp` SDK(装到 2.2.0,注意 FastMCP 已改名 `mcp.server.mcpserver.MCPServer`)、stdio transport;演示客户端走 Inspector + Day 24 自写最小 client
+- **`app/mcp_server.py`**:MCP 是传输协议不改工具语义——`get_schema`/`execute_sql` 直接复用 `app/db.py` 三层护栏(mode=ro + token 白名单 + 超时),每次调用独立只读连接;三类原语齐备:tools(上述两个,与 function calling 版同名同义,`final_answer` 编排留客户端)+ resources(`chatbi://schema` 全量、`chatbi://tables/{table}` 模板)+ prompts(`analyze_data` 口径模板:SQL 约定 + 脏数据说明)
+- **错误即接口**:护栏/SQL 错误显式转 `ToolError` → `isError=true` + 原始消息完整回传(自愈信号不丢);其他异常由 SDK mask 不泄内部细节
+- **验证**:新增 `tests/test_mcp_server.py` 3 例(真实 stdio 子进程,与 Inspector 同入口 `python -m app.mcp_server`),全量 84 例绿;**50 题 gold SQL 经 MCP vs 本地直连逐题一致**(交接单点名的验证资产);Inspector CLI(tools/list、tools/call 成功+护栏错误、resources/read、prompts/get)与 Web UI 均实测通过,中文 UTF-8 落文件验字节无恙(终端乱码纯 Git Bash 渲染)
+- **配置**:`scripts/mcp-inspector.json`(Inspector 的 server 配置,绝对路径免 cwd 依赖);requirements.txt + lock 增 `mcp`;README 新增「MCP 工具设计」节 + 本地运行第 4 步;踩坑 4 条进 `notes/pitfalls.md`(2.x 改名 / ToolError 语义 / Inspector CLI 裸拼参数被吞 / 验字节不验肉眼)
+
 ## 范围(按计划)
 
 Day 15-16 ✅ 数据+基础链路 → Day 17-18 ✅ 自愈循环(四组对比数字见 `eval/results.md`)→
@@ -97,10 +105,13 @@ Day 19 ✅ Schema 管理(枚举动态入 DDL/表关系图,92.0%→96.0%)→ Day 
 
 ## 下一步(新会话)
 
-项目 2 已收口(v0.1-chatbi)。可选后续:
-1. 复盘总结:按 agent-internship-plan.md 的产出要求过一遍简历叙事(量化数字/架构图/面试问答);
-2. 视情况公开仓库(去内网信息后再公开;`.env` 已在 .gitignore,确认无泄漏);
-3. 若继续迭代:饼/散点图的问法入集、图表选型合理率的人工标注、多轮对话(上下文追问)是自然的下一批题。
+项目 4 Day 22 已收口(chatbi 查询 MCP server + Inspector 调通)。后续:
+1. Day 23:收尾打磨——Inspector Web UI 手动走查截图(可选)、README MCP 节复核;若有余量,预研 Day 24 最小 client 的多 server 会话结构;
+2. Day 24:rag-qa 文档检索 MCP server(包 `app/hybrid.py` 检索栈出 `search(query, top_k)`)+ 最小 client 演示(一次会话连两个 server,agent 编排用内网 vLLM);
+3. Day 25-26:统一 Landing 页(`D:\LLM_training\portfolio\`,不建仓库)+ 2 分钟 demo(录自愈纠错);
+4. Day 27-28:简历段落 + 面试题(材料从两项目 README/results/pitfalls 提炼)。
+
+项目 2 遗留的可选后续(复盘/公开仓库)不变。
 
 ## 环境备忘(沿袭项目 1 的坑)
 

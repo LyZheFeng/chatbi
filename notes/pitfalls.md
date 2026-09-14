@@ -74,3 +74,10 @@
 
 - **resolve.independent 治不了堆叠污染,别把它当万能开关** → 上一轮加了 resolve.scale.theta=independent 后扇区仍是整环(五个满环叠成一色);隐式 theta 堆叠一旦和"另一层 theta 显式 scale"同场,连 resolve 都拉不回来 → 根治:彻底放弃隐式堆叠,Python 算好每扇区 _start/_end(度),arc 层 theta+theta2 显式绑字段、scale 域 [0,360],与文字层同域,不存在任何可被共享污染的比例尺。
 - **"看截图说修好了"不可靠,渲染验证要拿几何数据** → 连续两轮我在截图里"看到"了正常饼图,用户拿 SVG 路径证明扇区仍是整环(每条路径外圈+内圈都是完整圆弧=满环);最终以解析 arc path 的 d 属性计算张角(166.4°/104.2°/46.6°/22.2°/9.5°)对照占比理论值才坐实修复 → 视觉印象会脑补,几何数据不会。
+
+## 2026-09-14 · Day 22 MCP 化(mcp SDK 2.x)
+
+- **mcp 2.x 把 FastMCP 改名 MCPServer,1.x 教程全失效** → `pip install mcp` 装到 2.2.0,`from mcp.server.fastmcp import FastMCP` 直接 ImportError(提示改名 `mcp.server.mcpserver.MCPServer`);装饰器用法延续,但返回类型字段悄悄改了名(`uri_template`、资源内容 wire 层是 `contents[0].text` 而进程内是 `.content`)→ 写码前先 `dir()` 探实际 API,不照抄旧教程;版本大换代期,教程的年代比正确性更重要。
+- **工具异常默认被 SDK mask,自愈信号会丢** → 护栏抛的 `ValueError: 仅允许 SELECT…` 到客户端只剩 "Error executing tool execute_sql"(2.x 故意 mask 非 ToolError 异常防泄漏内部细节);错误消息是模型修正 SQL 的输入,必须显式 catch 后 `raise ToolError(msg)` 走 isError=true 完整回传——`UnexpectedToolError`(mask)与 `ToolError`(透传)的分工是 SDK 的安全设计,不是 bug,自定义工具要把"预期内错误"归到 ToolError。
+- **Inspector CLI 裸拼命令行参数会被吞** → `inspector --cli python -m app.mcp_server` 里 `-m` 被 commander 当成自己的 flag,server 子进程收到垃圾输入、把 JSON 里的 `true` 当 Python 字面量执行报 NameError;改用 `--config` JSON(command/args/cwd 全显式)一次通 → stdio server 调试一律配置文件起步,别在命令行裸拼参数。
+- **Git Bash 管道里中文 JSON "乱码"是渲染不是数据** → Inspector 部分输出在终端显示为乱码,重定向到文件后 Python 按 UTF-8 解码完全正常(`-- 表关系(→ 为外键指向…)` 一字不差)→ 判断编码问题永远验字节不验肉眼,环境老坑在新工具上复发。

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "chatbi-db": {
+      "command": "D:\\LLM_training\\chatbi\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "app.mcp_server"],
+      "cwd": "D:\\LLM_training\\chatbi"
+    }
+  }
+}

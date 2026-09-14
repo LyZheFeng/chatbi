@@ -82,9 +82,38 @@ cp .env.example .env                # 内网 vLLM 配置
 .venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000          # 单 worker 演示
 .venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000 --workers 4   # 多 worker(注意:限流计数是进程内的)
 .venv/Scripts/python.exe -X utf8 -m streamlit run app/ui.py
+
+# 4. MCP server(stdio transport;进程内不要 print 到 stdout,那是协议通道)
+.venv/Scripts/python.exe -m app.mcp_server
+# 用 MCP Inspector 调试(CLI / Web UI 二选一;配置已写好)
+npx @modelcontextprotocol/inspector --cli --config scripts/mcp-inspector.json --server chatbi-db --method tools/list
+npx @modelcontextprotocol/inspector --config scripts/mcp-inspector.json   # Web UI,浏览器打开后连 chatbi-db
 ```
+
+## MCP 工具设计(Day 22,官方 SDK `mcp` 2.x,stdio transport)
+
+设计原则:**MCP 是工具的传输协议,不改工具的语义**。`app/mcp_server.py` 不重写任何护栏,
+直接复用 `app/db.py` 的三层防护(mode=ro 只读连接 + token 级 SELECT 白名单 + 执行超时);
+agent 编排(final_answer 循环、反思提示)留在客户端——server 只回答"这一条查询的结果是什么"。
+
+三类原语各司其职:
+
+| 原语 | 定义 | 谁来调用 | 为什么用它 |
+|---|---|---|---|
+| **tools** | `get_schema(tables?)`、`execute_sql(sql)` | 模型,带参数 | 参数化查询,模型按需调用;与 function calling 版同名同义,零学习成本迁移 |
+| **resources** | `chatbi://schema`(全量)、`chatbi://tables/{table}`(模板) | 客户端,按 URI 读 | 静态上下文按址复用,不占工具调用轮次;单表 DDL 做成模板避免 5 份冗余资源 |
+| **prompts** | `analyze_data(question)` | 用户主动触发 | 把查询纪律(SQL 口径约定 + 已知脏数据说明)封装成模板,任何 MCP 客户端拿到同一套口径 |
+
+错误也是接口的一部分:护栏拒绝与 SQL 执行错误转换为 `isError=true` 的结果、**原始消息完整回传**
+(如 `ValueError: 仅允许 SELECT / WITH 开头的只读查询`),客户端模型据此修正重试——
+自愈循环的信号在 MCP 通道下不丢失;其他异常由 SDK 统一 mask,不泄漏服务端内部细节。
+
+验证(`tests/test_mcp_server.py`,3 例,走真实 stdio 子进程):三类原语的发现与调用、
+护栏错误回传、**50 题 gold SQL 经 MCP 通道与本地直连逐题结果一致**;MCP Inspector CLI 与
+Web UI 均实测通过(tools/resources/prompts 三个页签 + 错误注入)。
 
 ## 计划(详见 PROGRESS.md)
 
 Day 19 ✅ Schema 管理 → Day 20 ✅ 图表 + 解读 → Day 21 ✅ 安全加固 + 50 题评估
-(自然 100%,注入 100% 恢复)→ 已打 tag **`v0.1-chatbi`**。
+(自然 100%,注入 100% 恢复)→ 已打 tag **`v0.1-chatbi`** →
+Day 22 ✅ MCP 化:数据库查询 server(Inspector 调通,50 题 gold 双通道一致)。
