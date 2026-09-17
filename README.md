@@ -51,20 +51,24 @@
 - 纪律:所有 tool_call 参数过 pydantic 严格校验;表格数据一律来自本地执行
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
-- 接口:FastAPI `POST /ask`;界面:Streamlit(`app/ui.py`)。
-- 测试:`pytest tests` 76 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
+- 接口:FastAPI `POST /ask`(非流式)+ `GET /ask/stream`(SSE);界面:Next.js 前端(`web/`)。
+- 测试:`pytest tests` 96 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
   FakeLLM 脚本驱动、LLM 并发闸门与 token 统计、图表选型/解读/脏数据约定、API 鉴权/限流/异常兜底、
-  DDL 注释↔数据一致性回归),不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
+  SSE 流式事件序/鉴权/限流/CORS、DDL 注释↔数据一致性回归),不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
 - 未做、留给部署层(见 PROGRESS 路线图):分布式限流与 Prometheus 指标、异步任务队列/多 worker、
   熔断/fallback 模型、结构化查询意图与语义校验、schema 按需检索。
 
 ## 界面
 
-![折线图:亚太市场按月销售额趋势](docs/ui-line.png)
+`web/`(Next.js 16 + React 19 + Tailwind v4 + vega-embed)为正式前端:agent 执行轨迹直播(Timeline)、
+结论流式打出、Vega-Lite 图表白底卡片 + 自动选型标签 + 模板化解读、结果表格、SQL 与轨迹折叠面板;
+后端启用鉴权时自动带 `X-API-Key`。原 Streamlit 版 `app/ui.py` 已删除(历史版本见 git)。
 
-![分组柱状图:各大类销售额和利润对比](docs/ui-bar.png)
+![主界面:饼图 + 解读 + 会话统计](docs/web-ui.png)
 
-![饼图:各市场销售额占比](docs/ui-pie.png)
+![折线图:亚太市场按月销售额趋势](docs/web-line.png)
+
+![分组柱状图:各大类销售额和利润对比](docs/web-bar.png)
 
 ## 本地运行
 
@@ -79,9 +83,9 @@ cp .env.example .env                # 内网 vLLM 配置
 
 # 3. 演示
 .venv/Scripts/python.exe -X utf8 scripts/demo_ask.py       # 命令行端到端
-.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000          # 单 worker 演示
-.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8000 --workers 4   # 多 worker(注意:限流计数是进程内的)
-.venv/Scripts/python.exe -X utf8 -m streamlit run app/ui.py
+.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8010          # 单 worker 演示(8010 与 rag-qa 的 8000 错开)
+.venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8010 --workers 4   # 多 worker(注意:限流计数是进程内的)
+cd web && npm install && npm run dev                        # 前端 :http://localhost:3000(详见 web/README.md)
 
 # 4. MCP server(stdio transport;进程内不要 print 到 stdout,那是协议通道)
 .venv/Scripts/python.exe -m app.mcp_server

@@ -1,6 +1,5 @@
 fastapi
 uvicorn[standard]
-streamlit
 pandas
 pydantic
 pydantic-settings

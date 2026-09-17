@@ -120,7 +120,7 @@ export default function Home() {
     <div className="flex h-dvh">
       <Sidebar apiBase={API_BASE} history={history} onClear={clearAll} canClear={turns.length > 0} />
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="mx-auto w-full max-w-[880px] flex-1 overflow-y-auto px-4 pb-6">
+        <div className="mx-auto w-full max-w-[860px] flex-1 overflow-y-auto px-4 pb-6">
           {/* hero */}
           <div className={`pt-5 text-center ${hasHistory ? "pb-1" : "pb-2"}`}>
             <div className="mb-1.5 inline-block rounded-full border border-[#bcd9ec] bg-[#eaf4fb] px-3 py-[3px] text-[11px] font-bold tracking-[2px] text-[#1d4e89]">
@@ -199,7 +199,7 @@ export default function Home() {
 
         {/* 输入区 */}
         <div className="sticky bottom-0 border-t border-[var(--line)] bg-[linear-gradient(180deg,rgba(251,253,253,.85),#fbfdfd)] px-4 py-3 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-[880px] items-center gap-2">
+          <div className="mx-auto flex w-full max-w-[860px] items-center gap-2">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}

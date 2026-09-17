@@ -2,7 +2,15 @@
 
 > 每阶段收口更新本文件。新会话从这里接力。
 
-## 状态:阶段四 · chatbi 前端改造完成(2026-09-17,Next.js 流式前端上线,Streamlit 版保留共存)→ 下一步:前端工作流阶段 5(统一收尾,见 `D:\LLM_training\frontend-upgrade-workflow.md`)
+## 状态:阶段五 · 前端工作流全部完成(2026-09-17,Streamlit 已移除,Next.js 为唯一前端)→ 主线收口,后续见「下一步」
+
+## 阶段五 · 统一与收尾完成情况(2026-09-17,`frontend-upgrade-workflow.md` 阶段 5)
+
+- **前端统一(复制对齐,非 workspace)**:两仓独立,pnpm workspace 会把共享包置于两仓之外不被任何一仓版本化(CI 也拉不到),故按工作流预留的第二条路「先复制对齐再抽」执行——`lib/sse.ts` 逐字对齐(rag-qa 版补 headers 参数)、版心统一 860px、`next.config.ts` 同步 `allowedDevOrigins`(rag-qa 实测踩了 chatbi 同款 127.0.0.1 不水合坑)、Sidebar/状态机/输入区骨架结构一致;将来抽 npm 私有包或合并仓时零结构改动。两仓 `npm run build` 含 TS 严格检查均过
+- **移除 Streamlit(P0-1 纪律执行)**:`app/ui.py` 删除(历史见 git);requirements.txt 去 streamlit,requirements.lock 全量重生(51 项,streamlit 及 altair/pyarrow 等专属传递依赖整体移除);**全新 venv 从 requirements.txt 安装 → 96 例全绿**(证明声明自足、无被 streamlit 掩盖的隐性依赖;pandas 显式保留——build_db.py 直接引用);README 运行说明/接口行/测试数同步
+- **验收(= 计划通关标准③)**:chatbi 浏览器实测——轨迹直播 → 结论打字机 → 饼图/折线/分组柱状三图型渲染 → SQL 轨迹面板 → 会话统计,代码/依赖/文档/截图无 Streamlit 痕迹;截图 `docs/web-ui.png` + `docs/web-line.png` + `docs/web-bar.png`(旧 ui-*.png 删除)
+- **portfolio 联动**(`D:\LLM_training\portfolio\`):chatbi 三截图换 Next.js 版、rag-qa 卡新增前端截图卡、离线单测 161→190(94+96)、技术栈/页脚 Streamlit→Next.js,静态服务验证图片无坏链
+- **简历句子(工作流预定)**:「以 FastAPI + Next.js 重构 agent 产品前端,支持 SSE 流式渲染、引用溯源交互与任务过程可视化」
 
 ## 阶段四 · chatbi 前端改造完成情况(2026-09-17)
 
