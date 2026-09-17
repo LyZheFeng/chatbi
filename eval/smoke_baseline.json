@@ -1,0 +1,97 @@
+{
+ "date": "2026-09-17 15:11",
+ "llm_model": "Qwen3.8-27B",
+ "db_path": "D:\\LLM_training\\chatbi\\data\\chatbi.db",
+ "results": [
+  {
+   "qid": "s1-count",
+   "cat": "计数",
+   "question": "订单明细一共有多少行?",
+   "ok": true,
+   "failed": [],
+   "mark": null,
+   "row_count": 1,
+   "latency_ms": 10043,
+   "n_steps": 3,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 3899
+   },
+   "summary_head": "订单明细表(order_items)一共有 1000 行。"
+  },
+  {
+   "qid": "s2-agg",
+   "cat": "聚合",
+   "question": "三个商品大类各自的销售额和总利润是多少?",
+   "ok": true,
+   "failed": [],
+   "mark": "bar",
+   "row_count": 3,
+   "latency_ms": 8008,
+   "n_steps": 3,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 5605
+   },
+   "summary_head": "三个商品大类的销售额和总利润(美元)如下:\n- Technology(技术类):销售额 756,983.02,总利润 1"
+  },
+  {
+   "qid": "s3-share",
+   "cat": "占比",
+   "question": "各市场销售额占比?",
+   "ok": true,
+   "failed": [],
+   "mark": "arc",
+   "row_count": 5,
+   "latency_ms": 11269,
+   "n_steps": 3,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 5754
+   },
+   "summary_head": "各市场销售额占比(按销售额降序):\n- Asia Pacific(亚太):$797,866.37,占 46.72%\n- "
+  },
+  {
+   "qid": "s4-ts",
+   "cat": "时间序列",
+   "question": "亚太市场按月的销售额趋势是怎样的?",
+   "ok": true,
+   "failed": [],
+   "mark": "line",
+   "row_count": 47,
+   "latency_ms": 27225,
+   "n_steps": 3,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 6512
+   },
+   "summary_head": "亚太市场(Asia Pacific)按月销售额覆盖 2012-01 至 2015-12 共 47 个月(其中 2013-"
+  },
+  {
+   "qid": "s5-dirty",
+   "cat": "脏数据点名",
+   "question": "数量小于等于 0 的异常明细有哪些行号?",
+   "ok": true,
+   "failed": [],
+   "mark": null,
+   "row_count": 3,
+   "latency_ms": 5003,
+   "n_steps": 3,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 4227
+   },
+   "summary_head": "数量小于等于 0 的异常明细共 3 行,行号分别为:58(quantity=0)、62(quantity=-2)、220"
+  }
+ ]
+}

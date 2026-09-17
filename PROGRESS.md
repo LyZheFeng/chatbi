@@ -2,7 +2,18 @@
 
 > 每阶段收口更新本文件。新会话从这里接力。
 
-## 状态:阶段五 · 前端工作流全部完成(2026-09-17,Streamlit 已移除,Next.js 为唯一前端)→ 主线收口,后续见「下一步」
+## 状态:优化计划阶段 0+1 完成(2026-09-17,`optimization-plan.md` 第一部分:快赢 + 评测守护;CI 顺带复绿)→ 下一步 Day 27-28 求职材料
+
+## 阶段 0+1 · 优化计划第一部分完成情况(2026-09-17,`optimization-plan.md`;rag-qa 侧改动见其仓 PROGRESS)
+
+- **阶段 0 快赢**:
+  - `ChartCard` 开 vega-embed 导出菜单(`actions: {export: true, source/compiled/editor: false}`)——用户可存 PNG/SVG;source/compiled/editor 是看源码/跳外网编辑器,离线演示无意义故关(浏览器实测菜单恰为 Save as SVG / Save as PNG 两项)
+  - `_short_args` 的 sql 截断 80→200(80 连 SELECT+FROM 都看不全,Timeline 失去排查价值;其余字段保持 80,detail 另有 300 兜底)
+  - 对话历史 localStorage 持久化(key `chatbi.chat.turns.v1`,与 rag-qa 复制对齐)——刷新不丢(浏览器实测:结论 + 图表 vega-embed 重渲染 + 表格全恢复)、「清空对话」即清存储、刷新时在途轮转可重试错误态、损坏即弃、超配额(done 态含 200 行表格)退化存最近 20 条;96 例全绿、`npm run build` 过
+- **CI 复绿(阶段五遗留实锤)**:①requirements.lock 的 pywin32 补 `sys_platform=="win32"` 平台标记——阶段五在 Windows 重生 lock 后 ubuntu 装不上,**CI 连续三次红**(pip freeze 不带 marker 的坑,与 rag-qa lock 同款处理);②`test_protocol_surface` 补 skipif(CI 无真实 data/chatbi.db 时 get_schema 报 Error;MCP 的 DB_PATH 被锁在项目 data/ 内,conftest 的 tmp mini 库过不了启动校验,故与另两个 stdio 测试同口径跳过);双平台复绿(1m17s)
+- **阶段 1 评测守护**:`scripts/smoke_eval.py` 固定 5 题(计数/聚合/占比/时间序列/脏数据点名),断言 agent 无 error、SQL 已执行(row_count≥1)、结论非空,加各题专项:计数单值=1000、图表 mark 符合预期(bar/arc/line)、脏数据行号集合={58,62,220};与 `eval/smoke_baseline.json` 快照对比输出一页漂移报告
+  - **当次跑批(2026-09-17 15:11,vLLM Qwen3.8-27B):5/5 通过、零漂移**(连续三跑同表现;占比 arc 5 行、时间序列 line 47 个月、脏数据点名连 quantity 值都对:58=0、62=-2、220)
+- 用法:`.venv/Scripts/python.exe -X utf8 scripts/smoke_eval.py`;纪律:演示前、报任何评估数字前必跑,结果带日期记本文件(口径「当次跑批」)
 
 ## 阶段五 · 统一与收尾完成情况(2026-09-17,`frontend-upgrade-workflow.md` 阶段 5)
 
@@ -148,10 +159,12 @@ Day 25-26 ✅ 统一 Landing 页(`D:\LLM_training\portfolio\`,demo 录制留给�
 
 ## 下一步(新会话)
 
+> 当前执行文件:`D:\LLM_training\optimization-plan.md`(2026-09-17 制定,推荐路线:第一部分已完成,后续按第二部分 Day 27-28 → 暂缓区)。
+
 Day 25-26 的 Landing 页已完成:统一入口 + demo 大纲与嵌入点就位,视频用户自录。后续:
 1. Day 27-28:简历段落 + 面试题(材料从两项目 README/results/pitfalls 提炼;MCP 高频题素材已就位);
 2. 用户自录 2 分钟 demo 后放 `portfolio/assets/demo.mp4`,取消 index.html 中 `<video>` 注释即嵌入;
-3. 可选:Inspector Web UI 手动走查截图、双仓 README 交叉链接复核、推送(git push,看代理)。
+3. 可选:Inspector Web UI 手动走查截图、双仓 README 交叉链接复核。
 
 项目 2 遗留的可选后续(复盘/公开仓库)不变。
 
