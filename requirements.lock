@@ -34,7 +34,7 @@ pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
 python-multipart==0.0.32
-pywin32==312
+pywin32==312; sys_platform == "win32"  # Windows 条件依赖,带平台标记 Linux CI 才装得上
 PyYAML==6.0.3
 referencing==0.37.0
 rpds-py==2026.6.3
