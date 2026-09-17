@@ -251,10 +251,16 @@ class ChatbiAgent:
 
 
 def _short_args(name: str, arguments: str) -> dict:
+    # 截断长度按字段定:sql 提到 200(80 连 SELECT+FROM 都看不全,Timeline 失去排查价值);
+    # 其余(summary 等)保持 80,detail 另有 300 上限兜底
     try:
         obj = json.loads(arguments or "{}")
     except json.JSONDecodeError:
-        return {"_raw": (arguments or "")[:80]}
+        return {"_raw": (arguments or "")[:200]}
     if isinstance(obj, dict):
-        return {k: (str(v)[:80] + ("…" if len(str(v)) > 80 else "")) for k, v in obj.items()}
-    return {"_raw": str(obj)[:80]}
+        return {
+            k: (str(v)[:200] + ("…" if len(str(v)) > 200 else "")) if k == "sql"
+            else (str(v)[:80] + ("…" if len(str(v)) > 80 else ""))
+            for k, v in obj.items()
+        }
+    return {"_raw": str(obj)[:200]}

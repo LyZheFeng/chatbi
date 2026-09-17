@@ -23,6 +23,40 @@ type Turn =
 
 let nextId = 1;
 
+// 对话历史 localStorage 持久化:刷新不丢;「清空对话」置空 turns 后由保存 effect 一并清存储
+const STORAGE_KEY = "chatbi.chat.turns.v1";
+const FINAL_PHASES = new Set(["done", "error"]);
+
+function isTurn(t: unknown): t is Turn {
+  if (typeof t !== "object" || t === null) return false;
+  const v = t as { id?: unknown; role?: unknown; content?: unknown; state?: { phase?: unknown; resp?: unknown } };
+  if (typeof v.id !== "number") return false;
+  if (v.role === "user") return typeof v.content === "string";
+  if (v.role !== "assistant" || typeof v.state !== "object" || v.state === null) return false;
+  if (typeof v.state.phase !== "string") return false;
+  return v.state.phase !== "done" || typeof v.state.resp === "object";
+}
+
+function loadTurns(): Turn[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    if (!Array.isArray(saved)) return [];
+    const turns = saved.filter(isTurn);
+    // 刷新前 agent 还在跑的那轮不可续传:转成可重试的错误态,不留卡在"执行中"的消息
+    const last = turns[turns.length - 1];
+    if (last?.role === "assistant" && !FINAL_PHASES.has(last.state.phase)) {
+      const q = turns[turns.length - 2];
+      turns[turns.length - 1] = {
+        ...last,
+        state: { phase: "error", message: "页面刷新时分析未完成。", retryQuestion: q?.role === "user" ? q.content : "" },
+      };
+    }
+    return turns;
+  } catch {
+    return []; // 存储损坏即整体放弃,不影响界面可用
+  }
+}
+
 export default function Home() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
@@ -35,6 +69,30 @@ export default function Home() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns]);
+
+  // 历史:挂载后从 localStorage 恢复(SSR 首帧为空,避免水合不一致);id 续号避免 React key 撞车
+  useEffect(() => {
+    const saved = loadTurns();
+    if (saved.length > 0) {
+      setTurns(saved);
+      nextId = Math.max(...saved.map((t) => t.id)) + 1;
+    }
+  }, []);
+
+  // 历史:turns 变化即落存储;清空对话(setTurns([]))在这里同步清掉存储
+  useEffect(() => {
+    try {
+      if (turns.length === 0) localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, JSON.stringify(turns));
+    } catch {
+      try {
+        // 超配额时退化为只存最近 20 条,避免整段历史丢失(done 态含 200 行表格,长会话可能顶到 5MB 上限)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(turns.slice(-20)));
+      } catch {
+        /* 隐私模式等彻底写不进:放弃持久化,内存态不受影响 */
+      }
+    }
   }, [turns]);
 
   const patchLast = (updater: (s: AssistantState) => AssistantState) => {

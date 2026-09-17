@@ -46,7 +46,8 @@ export default function ChartCard({
           padding: { top: 46, left: 22, right: 22, bottom: 22 },
         } as VisualizationSpec,
         {
-          actions: false,
+          // 开导出菜单(用户可存 PNG/SVG);source/compiled/editor 是看源码/跳外网编辑器,离线演示无意义,关掉
+          actions: { export: true, source: false, compiled: false, editor: false },
           renderer: "svg",
         },
       );
