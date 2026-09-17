@@ -2,7 +2,25 @@
 
 > 每阶段收口更新本文件。新会话从这里接力。
 
-## 状态:Day 25-26 Landing 页完成(2026-09-14,`D:\LLM_training\portfolio\` 统一入口;demo 录制留给用户)→ 新会话从「下一步」第 1 条(Day 27-28)起步
+## 状态:阶段四 · chatbi 前端改造完成(2026-09-17,Next.js 流式前端上线,Streamlit 版保留共存)→ 下一步:前端工作流阶段 5(统一收尾,见 `D:\LLM_training\frontend-upgrade-workflow.md`)
+
+## 阶段四 · chatbi 前端改造完成情况(2026-09-17)
+
+- **后端只加接口**(零回归,全量 96 例测试绿,新增 10 例 `tests/test_stream.py`):
+  - `GET /ask/stream`(SSE,`text/event-stream`):事件序 `sources*`(agent 每执行完一个工具调用推**累计** steps,与 rag-qa 的 hits 同位,前端整体替换可漏帧自愈)→ `delta*`(中文结论分段)→ `done`(权威终态,完整 AskResponse 含 chart_spec/chart_reading);LLM 繁忙/未预期异常收拢为 `error` 事件(与 /ask 降级同口径),agent 内部优雅降级仍走 `done.error` 不混淆传输层
+  - **agent 流式化解法**:`run()` 与新 `stream()` 共用同一循环 `_iter_steps`(行为完全一致,仅产出时机不同),`_execute` 改返回 (ToolStep, 是否终止);eval/测试/MCP 链路零改动
+  - **delta 是服务端分段的 summary**(final_answer 一次产出,按句切分 ~24 字 + 10ms 间隔营造打字机节奏,内容与 done.summary 严格一致——有测试锁定)
+  - CORS:Settings 新增 `cors_origins`(逗号分隔,默认 localhost:3000 两写法);`iterate_in_threadpool` 桥接同步生成器
+  - **鉴权/限流保留且覆盖流式**:`/ask/stream` 同样过 X-API-Key 依赖;限流路径口径改为 `/ask` + `/ask/stream`(都触发整轮 agent,成本一致);新增测试:流式鉴权 401、限流 429、CORS 预检、error 事件不泄漏异常类名
+- **前端 `web/`**(Next.js 16.3.5 + React 19.2 + Tailwind v4 + vega-embed 7,`npm run build` 含 TS 严格检查通过):
+  - 结构见 `web/README.md`;`lib/types.ts` 与 `app/schemas.py` 逐字段对齐;`lib/sse.ts` 沿袭 rag-qa 的 fetch+ReadableStream 方案并加自定义请求头(X-API-Key)
+  - 状态机 `running`(轨迹直播)→ `summary`(结论打字机)→ `done`/`error`;复用 rag-qa 布局骨架(深色侧栏 + hero + 示例问题胶囊 + 输入区),品牌色换 chatbi 的深蓝→青绿
+  - **Timeline** 新组件:agent 轨迹可视化(编号圆点 + 工具中文标签 + 参数 mono + 结果摘要,失败步骤标红并注明"已回传模型修正",流式期间最新步骤脉冲 + 尾部"规划下一步…"等待态)
+  - **ChartCard** 新组件:vega-embed 动态导入(~1MB vega 不进首屏)、白底卡片(spec 已钉死深色文字,沿袭深色主题下 Vega 黑字不可读的教训)+ 自动选型标签 + "怎么读这张图"解读;两处前端注入:width=container 自适应、顶部 padding 46(vega-lite 6 运行时下 config.padding=22 容不下标题会被 viewBox 裁顶,实测修复)
+  - API key 走 `.env.local` 的 `NEXT_PUBLIC_API_KEY`(空 = 后端未启用);服务端路由代理隐藏 key 留阶段 5
+  - 踩坑:Next dev 默认拦截 `127.0.0.1` 来源的 HMR/dev 资源,页面停在未水合状态(按钮无响应、轮询不走)——`next.config.ts` 加 `allowedDevOrigins: ["127.0.0.1"]` 解决
+- **端到端实测**(真实 vLLM Qwen3.8-27B):Python 直连 SSE 冒烟通过(sources 1.1s/3.8s/11.4s 逐步到达,delta 拼接==summary,done 含图表 47 行);浏览器实测:示例点击→轨迹直播(含 47 行结果摘要实时亮出)→结论分段打出→饼图/折线图渲染→SQL 轨迹面板展开→会话统计(提问/平均延迟/累计 tokens);截图 `docs/web-ui.png`;冒烟脚本 `scripts/smoke_stream.py` 留档可复跑
+- **Streamlit 版保留**(按工作流约定,阶段五新前端稳定验收后才删);启动:`uvicorn app.api:app --port 8010` + `cd web && npm run dev`(端口 8010 与 rag-qa 的 8000 错开,可同时开)
 
 ## 已定决策(开工即沿用,免重复讨论)
 

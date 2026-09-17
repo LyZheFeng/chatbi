@@ -1,22 +1,29 @@
-"""FastAPI 接口:POST /ask(中文问题 → 结构化表格 + 结论 + 轨迹)。
+"""FastAPI 接口:POST /ask(中文问题 → 结构化表格 + 结论 + 轨迹)+ GET /ask/stream(SSE 流式)。
 
 生产化最小保护(评审两轮后):
-- 可选 API Key 鉴权:Settings.api_key 非空即启用,请求须带 X-API-Key 头(内网演示默认关闭);
+- 可选 API Key 鉴权:Settings.api_key 非空即启用,请求须带 X-API-Key 头(内网演示默认关闭),
+  /ask 与 /ask/stream 同样受保护;
 - 观测最小集:每请求 X-Request-Id 响应头 + 结构化访问日志(方法/路径/状态/耗时);
-- 可选限流:rate_limit_per_min 非 0 时按客户端 IP 固定窗口计数,超限 429(进程内,单 worker 有效);
-- 异常兜底:对外只给通用错误文案,完整异常堆栈记服务端日志;LLM 繁忙(并发闸门超时)转 503。
+- 可选限流:rate_limit_per_min 非 0 时按客户端 IP 固定窗口计数,超限 429(进程内,单 worker 有效),
+  限流覆盖 /ask 与 /ask/stream(流式同样触发整轮 agent,成本一致);
+- 异常兜底:对外只给通用错误文案,完整异常堆栈记服务端日志;LLM 繁忙(并发闸门超时)转
+  error 事件(流式)/ AskResponse.error(非流式)。
 限流分布式版/Prometheus 指标/异步任务队列属部署层,见 PROGRESS 路线图。
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 import uuid
+from collections.abc import Iterable
 
-from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.concurrency import iterate_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import get_settings
 from .llm import LLMBusy
@@ -27,11 +34,19 @@ logger = logging.getLogger("chatbi.api")
 
 app = FastAPI(title="chatbi", version="0.1.0")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 # 限流状态:ip -> (窗口起点 epoch 秒, 计数)。进程内字典,单 worker 有效
 _RATE_STATE: dict[str, tuple[int, int]] = {}
 _RATE_LOCK = threading.Lock()
 _RATE_MAX_ENTRIES = 10_000  # 字典规模上限,超过即惰性清扫过期窗口(防伪造来源撑爆内存)
 _RATE_WINDOW_S = 60
+_RATE_LIMITED_PATHS = frozenset({"/ask", "/ask/stream"})  # 都触发整轮 agent,限流口径一致
 
 
 def _require_key(x_api_key: str | None = Header(default=None)) -> None:
@@ -42,12 +57,12 @@ def _require_key(x_api_key: str | None = Header(default=None)) -> None:
 
 @app.middleware("http")
 async def _observe(request, call_next):
-    """request id + 访问日志 + 可选按 IP 固定窗口限流(只限写路径 /ask)。"""
+    """request id + 访问日志 + 可选按 IP 固定窗口限流(只限写路径 /ask*)。"""
     rid = uuid.uuid4().hex[:8]
     t0 = time.perf_counter()
 
     limit = get_settings().rate_limit_per_min
-    if limit and request.url.path == "/ask" and request.client:
+    if limit and request.url.path in _RATE_LIMITED_PATHS and request.client:
         now = int(time.time())
         with _RATE_LOCK:
             if len(_RATE_STATE) >= _RATE_MAX_ENTRIES:  # 惰性清扫:过期窗口即伪 IP 遗留
@@ -87,3 +102,38 @@ def ask(req: AskRequest) -> AskResponse:
     except Exception:  # noqa: BLE001 —— 兜底:对外通用文案,堆栈只进服务端日志
         logger.exception("ask 未预期异常")
         return AskResponse(question=req.question, error="服务内部错误,请稍后重试。")
+
+
+def _sse_frame(event: str, payload: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@app.get("/ask/stream", dependencies=[Depends(_require_key)])
+async def ask_stream(q: str = Query(min_length=2, max_length=500)) -> StreamingResponse:
+    """SSE 流式:事件序 sources*(每步累计)→ delta*(结论分段)→ done(权威终态)。
+
+    agent 内部优雅降级仍走 done(error 字段);LLM 繁忙/未预期异常收拢为 error 事件。
+    参数走 query string(EventSource 兼容),中文由前端 encodeURIComponent。
+    """
+    svc = get_service()
+
+    def guarded() -> Iterable[tuple[str, dict]]:
+        try:
+            yield from svc.ask_stream(q)
+        except LLMBusy as e:
+            logger.warning("LLM 繁忙:%s", e)
+            yield "error", {"message": "LLM 当前繁忙,请稍后重试。"}
+        except Exception:  # noqa: BLE001 —— 与 /ask 同口径:细节进日志,流上只给通用文案
+            logger.exception("ask/stream 未预期异常")
+            yield "error", {"message": "服务内部错误,请稍后重试。"}
+
+    async def sse():
+        async for event, payload in iterate_in_threadpool(guarded()):
+            yield _sse_frame(event, payload)
+
+    return StreamingResponse(
+        sse(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+

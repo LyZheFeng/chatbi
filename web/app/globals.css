@@ -1,0 +1,52 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* 品牌令牌:沿袭 rag-qa 前端的结构与 Streamlit 版 chatbi 的深蓝→青绿品牌色 */
+:root {
+  --acc: #009687;
+  --acc-soft: #e6f7f4;
+  --ink: #16303f;
+  --muted: #64748b;
+  --line: #e4eaee;
+}
+
+@theme inline {
+  --color-acc: var(--acc);
+  --color-acc-soft: var(--acc-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --font-sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+body {
+  background:
+    radial-gradient(1200px 420px at 50% -120px, #e9f4fb 0%, rgba(233, 244, 251, 0) 62%),
+    linear-gradient(180deg, #fbfdfd, #f5f8fa);
+  background-attachment: fixed;
+  color: var(--ink);
+}
+
+/* 流式输出时的光标 */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--acc);
+  animation: cursor-blink 0.9s step-end infinite;
+}
+
+/* Timeline 进行中的最新步骤 */
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 150, 135, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(0, 150, 135, 0); }
+}
+.step-live {
+  animation: step-pulse 1.4s ease-out infinite;
+}

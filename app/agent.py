@@ -1,5 +1,9 @@
 """function calling agent 循环:中文问题 → 工具调用序列 → 结构化结果。
 
+调用方式:run() 一次性跑完返回 AgentResult;stream() 逐工具调用产出 ToolStep
+(SSE 轨迹逐步下发用),终态挂 self.last_result——两者共用同一循环 _iter_steps,
+行为完全一致,仅产出时机不同。
+
 自愈策略(Day 17-18):
 - SQL 报错 → 错误信息 + 分类提示原样回传模型修正重试,连续失败上限 max_sql_retries;
 - 空结果/异常结果(单列全 0/NULL)→ 追加反思提示,让模型判断"SQL 写错还是数据本身如此";
@@ -11,7 +15,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 
 from .db import run_select
@@ -114,17 +118,35 @@ class ChatbiAgent:
         # 生产链路恒为 None
         self.sql_mutator = sql_mutator
         self._mutated_once = False
+        self.last_result: AgentResult | None = None  # stream() 跑完后的终态
 
     def run(self, question: str) -> AgentResult:
         state = AgentResult()
         try:
-            self._run_loop(question, state)
+            for _ in self._iter_steps(question, state):
+                pass
             return state
         finally:
             # token 用量汇总(FakeLLM 无此属性时记 0,不影响离线测试)
             state.stats["llm_tokens"] = getattr(self.llm, "used_tokens", 0)
 
-    def _run_loop(self, question: str, state: AgentResult) -> None:
+    def stream(self, question: str) -> Iterator[ToolStep]:
+        """流式驱动:每执行完一个工具调用就 yield 该步骤,供 SSE 逐步下发。
+
+        agent 是每请求新建的,迭代期间终态挂在 self.last_result;生成器被提前
+        close(客户端断开)时 finally 仍会补记 token 用量。
+        """
+        self.last_result = state = AgentResult()
+        try:
+            for step, stop in self._iter_steps(question, state):
+                yield step
+                if stop:
+                    return
+        finally:
+            state.stats["llm_tokens"] = getattr(self.llm, "used_tokens", 0)
+
+    def _iter_steps(self, question: str, state: AgentResult) -> Iterator[tuple[ToolStep, bool]]:
+        """agent 主循环:逐个产出 (刚执行的步骤, 是否应终止)。"""
         messages: list = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": question},
@@ -146,14 +168,16 @@ class ChatbiAgent:
 
             messages.append(msg)  # 带 tool_calls 的 assistant 消息原样入列
             for tc in tool_calls:
-                if self._execute(state, messages, tc):
+                step, stop = self._execute(state, messages, tc)
+                yield step, stop
+                if stop:
                     return
 
         if state.error is None:
             state.error = f"达到工具调用步数上限({self.max_steps}),未能产出最终答案。"
 
-    def _execute(self, state: AgentResult, messages: list, tc) -> bool:
-        """执行单个 tool_call。返回 True 表示循环应结束(final_answer 已给出或已降级)。"""
+    def _execute(self, state: AgentResult, messages: list, tc) -> tuple[ToolStep, bool]:
+        """执行单个 tool_call。返回 (本步记录, 是否应结束循环:final_answer 已给出或已降级)。"""
         name = tc.function.name
         step_no = len(state.steps) + 1
         degrade: str | None = None
@@ -195,20 +219,19 @@ class ChatbiAgent:
                         f"SQL 连续 {self.max_sql_retries} 次执行失败,已停止重试。最后一次错误:{e}"
                     )
 
-        state.steps.append(
-            ToolStep(
-                step=step_no,
-                tool=name,
-                args=_short_args(name, tc.function.arguments),
-                ok=not text.startswith("ERROR"),
-                detail=text[:300],
-            )
+        step_rec = ToolStep(
+            step=step_no,
+            tool=name,
+            args=_short_args(name, tc.function.arguments),
+            ok=not text.startswith("ERROR"),
+            detail=text[:300],
         )
+        state.steps.append(step_rec)
         messages.append({"role": "tool", "tool_call_id": tc.id, "content": text})
 
         if degrade is not None:
             state.error = degrade
-            return True
+            return step_rec, True
 
         if name == "final_answer" and not text.startswith("ERROR"):
             args = FinalAnswerArgs(**json.loads(tc.function.arguments or "{}"))
@@ -223,8 +246,8 @@ class ChatbiAgent:
                     pass  # 自报 SQL 跑不动时保留最近一次成功结果
             elif state.result is not None:
                 state.sql = state.result.executed_sql
-            return True
-        return False
+            return step_rec, True
+        return step_rec, False
 
 
 def _short_args(name: str, arguments: str) -> dict:
