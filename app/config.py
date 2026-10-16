@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=str(ROOT / ".env"), env_file_encoding="utf-8", extra="ignore")
 
     llm_base_url: str
-    llm_api_key: str = "1234"
+    llm_api_key: str = ""  # 本地开发占位;真实 key 放 .env
     llm_model: str
     llm_max_retries: int = 3  # openai SDK 内建重试次数(连接错误/429/5xx,指数退避)
 

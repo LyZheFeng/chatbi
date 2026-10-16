@@ -22,8 +22,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from openai import AsyncOpenAI
 
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://10.14.6.55:30561/v1")
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "1234")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1")
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "dummy")
 LLM_MODEL = os.environ.get("LLM_MODEL", "Qwen3.8-27B")
 
 CHATBI_ROOT = Path(__file__).resolve().parents[1]

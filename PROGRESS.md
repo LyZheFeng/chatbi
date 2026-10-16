@@ -45,7 +45,7 @@
 
 | 项 | 决定 |
 |---|---|
-| 生成模型 | 内网 vLLM `http://10.14.6.55:30561/v1`,`Qwen3.8-27B`,key=1234(与项目 1 相同,已验证可用) |
+| 生成模型 | vLLM(自建/内网)`http://<vllm-host>:<port>/v1`,`Qwen3.8-27B`,key 见 .env(与项目 1 相同,已验证可用) |
 | 工具协议 | 原生 function calling(已探测可用,`enable_thinking: False`,temperature=0) |
 | 数据库 | SQLite `data/chatbi.db`,5 张关联表:geography/customers/products/orders/order_items;DDL 内嵌中文注释 |
 | 数据源 | Global Superstore 公开镜像(1000 行,日期实际覆盖 2012-01~2015-12,下载源见 `scripts/build_db.py` 头注释) |
@@ -53,7 +53,7 @@
 | 框架 | Python 3.13 + FastAPI + Streamlit;所有 tool_call 参数 pydantic 严格校验(纪律沿袭项目 1) |
 | 自愈 | `self_heal` 配置项(默认开):错误回传+分类提示重试(连续失败上限 3)+ 空/异常结果反思提示;off = 首错即降级。评估用 `--chaos` 故障注入模式量恢复能力 |
 | 评估 | 判定口径:gold 值集合一致(圆整 2 位、行序无关、允许多带上下文列投影比对、单行 gold 答案点包含);gold SQL 不圆整,容差只在判定器一处 |
-| 仓库 | 独立私有仓库 LyZheFeng/chatbi,终稿后视情况公开 |
+| 仓库 | 独立仓库 LyZheFeng/chatbi(2026-10-16 起公开,求职展示) |
 | 环境 | `.venv/`(D:\python 建的 3.13.9),HF/缓存如需一律指 D 盘 |
 
 ## Day 15-16 完成情况(2026-09-13)
