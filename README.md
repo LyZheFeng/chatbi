@@ -76,7 +76,7 @@
 # 1. 环境(Windows,Python 3.13)
 /d/python/python.exe -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements.txt   # 可复现安装用 requirements.lock
-cp .env.example .env                # 内网 vLLM 配置
+cp .env.example .env                # 默认 DeepSeek API 配置
 
 # 2. 建库(源数据放 data/raw/,来源见 scripts/build_db.py 头注释)
 .venv/Scripts/python.exe -X utf8 scripts/build_db.py
@@ -93,6 +93,15 @@ cd web && npm install && npm run dev                        # 前端 :http://loc
 npx @modelcontextprotocol/inspector --cli --config scripts/mcp-inspector.json --server chatbi-db --method tools/list
 npx @modelcontextprotocol/inspector --config scripts/mcp-inspector.json   # Web UI,浏览器打开后连 chatbi-db
 ```
+
+### DeepSeek API
+
+默认使用 `https://api.deepseek.com` 和 `deepseek-chat`，复用 OpenAI SDK 的工具调用。
+设置本机环境变量 `DEEPSEEK_API_KEY`，或在 `.env` 设置 `LLM_API_KEY`（优先），然后重启后端。
+密钥只在后端使用，不要放入前端的 `NEXT_PUBLIC_` 配置。
+原内网 vLLM 仍可通过 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 配置，
+并设置 `LLM_VLLM_CHAT_TEMPLATE=true` 以发送关闭思考的专用模板参数；DeepSeek 保持 `false`。
+历史评测结果来自原模型，切换后应重新评测。
 
 ## MCP 工具设计(Day 22,官方 SDK `mcp` 2.x,stdio transport)
 

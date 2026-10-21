@@ -8,6 +8,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,9 +17,10 @@ ROOT = Path(__file__).resolve().parents[1]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=str(ROOT / ".env"), env_file_encoding="utf-8", extra="ignore")
 
-    llm_base_url: str
-    llm_api_key: str = ""  # 本地开发占位;真实 key 放 .env
-    llm_model: str
+    llm_base_url: str = "https://api.deepseek.com"
+    llm_api_key: str = Field(default="", validation_alias=AliasChoices("llm_api_key", "DEEPSEEK_API_KEY"))
+    llm_model: str = "deepseek-chat"
+    llm_vllm_chat_template: bool = False  # 仅 vLLM 服务启用专用模板参数
     llm_max_retries: int = 3  # openai SDK 内建重试次数(连接错误/429/5xx,指数退避)
 
     db_path: str = str(ROOT / "data" / "chatbi.db")

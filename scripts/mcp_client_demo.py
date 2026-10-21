@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -22,11 +21,14 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from openai import AsyncOpenAI
 
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1")
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "dummy")
-LLM_MODEL = os.environ.get("LLM_MODEL", "Qwen3.8-27B")
-
 CHATBI_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CHATBI_ROOT))
+from app.config import get_settings
+
+SETTINGS = get_settings()
+LLM_BASE_URL = SETTINGS.llm_base_url
+LLM_API_KEY = SETTINGS.llm_api_key
+LLM_MODEL = SETTINGS.llm_model
 RAGQA_ROOT = CHATBI_ROOT.parent / "rag-qa"
 
 SERVERS = {
@@ -71,7 +73,8 @@ async def call_llm(client: AsyncOpenAI, messages: list, tools: list):
         tools=tools or None,
         temperature=0,
         max_tokens=2000,
-        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        **({"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+           if SETTINGS.llm_vllm_chat_template else {}),
     )
     return resp.choices[0].message
 

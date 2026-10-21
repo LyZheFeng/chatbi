@@ -10,6 +10,34 @@ import pytest
 from app.llm import _GATES, LLMBusy, LLM
 
 
+def test_deepseek_request_uses_standard_parameters():
+    from unittest.mock import Mock
+    client = _fake_client()
+    client.chat.completions.create = Mock(wraps=client.chat.completions.create)
+    tools = [{"type": "function", "function": {"name": "get_schema"}}]
+    LLM(client, "deepseek-chat").chat([{"role": "user", "content": "hi"}], tools)
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert "extra_body" not in kwargs
+    assert kwargs["tools"] == tools
+
+
+def test_vllm_template_is_opt_in():
+    from unittest.mock import Mock
+    client = _fake_client()
+    client.chat.completions.create = Mock(wraps=client.chat.completions.create)
+    LLM(client, "qwen", vllm_chat_template=True).chat([])
+    assert client.chat.completions.create.call_args.kwargs["extra_body"] == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
+
+
+def test_deepseek_environment_key_alias(monkeypatch):
+    from app.config import Settings
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    assert Settings(_env_file=None).llm_api_key == "test-deepseek-key"
+
+
 def _fake_client(usage_tokens: int = 0):
     """返回一个 chat.completions.create 可用的假 client,响应带 usage。"""
     resp = SimpleNamespace(

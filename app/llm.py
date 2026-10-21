@@ -1,4 +1,4 @@
-"""内网 vLLM(OpenAI 兼容)薄封装:固定 temperature=0、关闭思维链。
+"""OpenAI 兼容模型薄封装，支持 DeepSeek API 和可选 vLLM 模板参数。
 
 健壮性(Day 21 后追加):
 - 网络重试走 openai SDK 内建(max_retries,连接错误/429/5xx 自动指数退避,Settings.llm_max_retries);
@@ -23,13 +23,15 @@ class LLMBusy(RuntimeError):
 
 class LLM:
     def __init__(self, client: OpenAI, model: str, timeout: int = 90,
-                 max_concurrency: int = 8, gate_wait_s: float = 30.0):
+                 max_concurrency: int = 8, gate_wait_s: float = 30.0,
+                 vllm_chat_template: bool = False):
         self.client = client
         self.model = model
         self.timeout = timeout
         self.max_concurrency = max_concurrency
         self.gate_wait_s = gate_wait_s
         self.used_tokens = 0
+        self.vllm_chat_template = vllm_chat_template
 
     @classmethod
     def from_settings(cls) -> "LLM":
@@ -42,6 +44,7 @@ class LLM:
             s.llm_model,
             max_concurrency=s.llm_max_concurrency,
             gate_wait_s=s.llm_gate_wait_s,
+            vllm_chat_template=s.llm_vllm_chat_template,
         )
 
     def chat(self, messages: list, tools: list | None = None):
@@ -52,8 +55,9 @@ class LLM:
             tools=tools,
             temperature=0,
             max_tokens=2000,
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
+        if self.vllm_chat_template:
+            kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
         if tools is None:
             kwargs.pop("tools")
         gate = _GATES.setdefault(self.max_concurrency, threading.BoundedSemaphore(self.max_concurrency))
