@@ -26,6 +26,7 @@ export interface AskResponse {
 // GET /health 响应(侧栏探活)
 export interface HealthInfo {
   status: string;
+  llm_model?: string;
 }
 
 // SSE 事件载荷:sources*(每步累计)→ delta*(结论分段)→ done | error

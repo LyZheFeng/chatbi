@@ -89,7 +89,8 @@ async def _observe(request, call_next):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    # 带上实际模型名,前端侧栏直接展示,换模型不必改前端
+    return {"status": "ok", "llm_model": get_settings().llm_model}
 
 
 @app.post("/ask", response_model=AskResponse, dependencies=[Depends(_require_key)])

@@ -24,6 +24,7 @@ export default function Sidebar({
   canClear: boolean;
 }) {
   const [up, setUp] = useState(false);
+  const [model, setModel] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -31,7 +32,10 @@ export default function Sidebar({
       try {
         const r = await fetch(`${apiBase}/health`, { signal: AbortSignal.timeout(5000) });
         const body = (await r.json()) as HealthInfo;
-        if (alive) setUp(body.status === "ok");
+        if (alive) {
+          setUp(body.status === "ok");
+          setModel(body.llm_model ?? "");
+        }
       } catch {
         if (alive) setUp(false);
       }
@@ -56,6 +60,11 @@ export default function Sidebar({
         />
         {up ? "服务在线" : "服务离线"}
       </div>
+      {up && model && (
+        <div className="mb-2 text-[11.5px] text-[#9fc0ba]">
+          生成模型 <span className="font-semibold text-white">{model}</span>
+        </div>
+      )}
 
       <div className="mb-1 text-[13px] font-bold text-white">🗄️ 数据概况</div>
       <div className="mb-2">
