@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="360" viewBox="0 0 820 360" font-family="-apple-system,Segoe UI,Microsoft YaHei,sans-serif">
+<rect width="820" height="360" fill="white"/>
+<text x="20" y="28" font-size="15" font-weight="600" fill="#111827">最终矩阵:54 题 × 4 配置 × 3 轮(平均)</text>
+<text x="40" y="52" font-size="12" fill="#6b7280">执行准确率(%)</text>
+<line x1="40" y1="280.0" x2="360" y2="280.0" stroke="#e5e7eb"/>
+<text x="32" y="284.0" font-size="10" fill="#6b7280" text-anchor="end">0</text>
+<line x1="40" y1="225.0" x2="360" y2="225.0" stroke="#e5e7eb"/>
+<text x="32" y="229.0" font-size="10" fill="#6b7280" text-anchor="end">25</text>
+<line x1="40" y1="170.0" x2="360" y2="170.0" stroke="#e5e7eb"/>
+<text x="32" y="174.0" font-size="10" fill="#6b7280" text-anchor="end">50</text>
+<line x1="40" y1="115.0" x2="360" y2="115.0" stroke="#e5e7eb"/>
+<text x="32" y="119.0" font-size="10" fill="#6b7280" text-anchor="end">75</text>
+<line x1="40" y1="60.0" x2="360" y2="60.0" stroke="#e5e7eb"/>
+<text x="32" y="64.0" font-size="10" fill="#6b7280" text-anchor="end">100</text>
+<rect x="49.6" y="60.0" width="24.0" height="220.0" fill="#2563eb" rx="2"/>
+<text x="61.6" y="56.0" font-size="9" fill="#111827" text-anchor="middle">100</text>
+<rect x="79.6" y="60.0" width="24.0" height="220.0" fill="#93c5fd" rx="2"/>
+<text x="91.6" y="56.0" font-size="9" fill="#111827" text-anchor="middle">100</text>
+<text x="80.0" y="296" font-size="10" fill="#111827" text-anchor="middle">自然/自愈开</text>
+<rect x="129.6" y="61.4" width="24.0" height="218.6" fill="#2563eb" rx="2"/>
+<text x="141.6" y="57.4" font-size="9" fill="#111827" text-anchor="middle">99</text>
+<rect x="159.6" y="60.0" width="24.0" height="220.0" fill="#93c5fd" rx="2"/>
+<text x="171.6" y="56.0" font-size="9" fill="#111827" text-anchor="middle">100</text>
+<text x="160.0" y="296" font-size="10" fill="#111827" text-anchor="middle">自然/自愈关</text>
+<rect x="209.6" y="62.7" width="24.0" height="217.3" fill="#2563eb" rx="2"/>
+<text x="221.6" y="58.7" font-size="9" fill="#111827" text-anchor="middle">99</text>
+<rect x="239.6" y="61.4" width="24.0" height="218.6" fill="#93c5fd" rx="2"/>
+<text x="251.6" y="57.4" font-size="9" fill="#111827" text-anchor="middle">99</text>
+<text x="240.0" y="296" font-size="10" fill="#111827" text-anchor="middle">注入/自愈开</text>
+<rect x="289.6" y="280.0" width="24.0" height="0.0" fill="#2563eb" rx="2"/>
+<text x="301.6" y="276.0" font-size="9" fill="#111827" text-anchor="middle">0</text>
+<rect x="319.6" y="280.0" width="24.0" height="0.0" fill="#93c5fd" rx="2"/>
+<text x="331.6" y="276.0" font-size="9" fill="#111827" text-anchor="middle">0</text>
+<text x="320.0" y="296" font-size="10" fill="#111827" text-anchor="middle">注入/自愈关</text>
+<rect x="40" y="306" width="10" height="10" fill="#2563eb"/>
+<text x="54" y="315" font-size="10" fill="#6b7280">严格</text>
+<rect x="94" y="306" width="10" height="10" fill="#93c5fd"/>
+<text x="108" y="315" font-size="10" fill="#6b7280">宽松</text>
+<text x="440" y="52" font-size="12" fill="#6b7280">延迟(ms)</text>
+<line x1="440" y1="280.0" x2="780" y2="280.0" stroke="#e5e7eb"/>
+<text x="432" y="284.0" font-size="10" fill="#6b7280" text-anchor="end">0</text>
+<line x1="440" y1="170.0" x2="780" y2="170.0" stroke="#e5e7eb"/>
+<text x="432" y="174.0" font-size="10" fill="#6b7280" text-anchor="end">4216</text>
+<line x1="440" y1="60.0" x2="780" y2="60.0" stroke="#e5e7eb"/>
+<text x="432" y="64.0" font-size="10" fill="#6b7280" text-anchor="end">8433</text>
+<rect x="450.2" y="185.2" width="25.5" height="94.8" fill="#0f766e" rx="2"/>
+<text x="462.9" y="181.2" font-size="9" fill="#111827" text-anchor="middle">3.6s</text>
+<rect x="481.7" y="134.2" width="25.5" height="145.8" fill="#5eead4" rx="2"/>
+<text x="494.4" y="130.2" font-size="9" fill="#111827" text-anchor="middle">5.6s</text>
+<text x="482.5" y="296" font-size="10" fill="#111827" text-anchor="middle">自然/自愈开</text>
+<rect x="535.2" y="184.9" width="25.5" height="95.1" fill="#0f766e" rx="2"/>
+<text x="548.0" y="180.9" font-size="9" fill="#111827" text-anchor="middle">3.6s</text>
+<rect x="566.7" y="128.0" width="25.5" height="152.0" fill="#5eead4" rx="2"/>
+<text x="579.5" y="124.0" font-size="9" fill="#111827" text-anchor="middle">5.8s</text>
+<text x="567.5" y="296" font-size="10" fill="#111827" text-anchor="middle">自然/自愈关</text>
+<rect x="620.2" y="150.4" width="25.5" height="129.6" fill="#0f766e" rx="2"/>
+<text x="633.0" y="146.4" font-size="9" fill="#111827" text-anchor="middle">5.0s</text>
+<rect x="651.7" y="96.7" width="25.5" height="183.3" fill="#5eead4" rx="2"/>
+<text x="664.5" y="92.7" font-size="9" fill="#111827" text-anchor="middle">7.0s</text>
+<text x="652.5" y="296" font-size="10" fill="#111827" text-anchor="middle">注入/自愈开</text>
+<rect x="705.2" y="230.7" width="25.5" height="49.3" fill="#0f766e" rx="2"/>
+<text x="718.0" y="226.7" font-size="9" fill="#111827" text-anchor="middle">1.9s</text>
+<rect x="736.7" y="204.2" width="25.5" height="75.8" fill="#5eead4" rx="2"/>
+<text x="749.5" y="200.2" font-size="9" fill="#111827" text-anchor="middle">2.9s</text>
+<text x="737.5" y="296" font-size="10" fill="#111827" text-anchor="middle">注入/自愈关</text>
+<rect x="440" y="306" width="10" height="10" fill="#0f766e"/>
+<text x="454" y="315" font-size="10" fill="#6b7280">p50</text>
+<rect x="494" y="306" width="10" height="10" fill="#5eead4"/>
+<text x="508" y="315" font-size="10" fill="#6b7280">p90</text>
+</svg>

@@ -33,6 +33,10 @@
 > 题库扩到 **54 题**(补 2 道占比 arc、2 道两数值 point),最终矩阵(4 配置 × 3 轮)见 `eval/results.md`。
 > 期间后端 503 中断多次,均由整题重试/重跑拿到终值。冒烟 5/5、`pytest` 143 例全绿。
 
+![评测总览:54 题 × 4 配置 × 3 轮,准确率与延迟](eval/overview.svg)
+
+> 图由 `scripts/plot_overview.py` 从 `eval/runs/*20261101-22*.json` 重算生成;0% 的柱子是"注入+自愈关"的预期下限。
+
 - 数据:Global Superstore(公开电商订单数据集,1000 行明细)整理成 5 张关联表
   (geography / customers / products / orders / order_items),DDL 内嵌中文列注释;
   确定性注入 5 类脏数据(region 缺失 / 数量 0 与负数 / 销售额缺失 / 发货早于下单 / 邮编大面积空)。
