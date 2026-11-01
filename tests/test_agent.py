@@ -253,6 +253,16 @@ def test_final_answer_bad_sql_keeps_last_result(conn):
     assert r.error is None
 
 
+def test_system_prompt_has_answer_shape_rules():
+    """评测 2.0 的 q28 类失配(问总计只给逐月明细)靠提示词里的"结果形状"约束兜住。"""
+    from app.agent import SYSTEM_PROMPT
+
+    assert "结果形状" in SYSTEM_PROMPT
+    assert "单行合计" in SYSTEM_PROMPT          # 问总计 → 单行合计
+    assert "不要额外加" in SYSTEM_PROMPT         # 问分组 → 不加合计行
+    assert "时间序列明细" in SYSTEM_PROMPT       # 问趋势 → 给序列
+
+
 def test_sql_mutator_breaks_only_first_attempt(conn):
     """故障注入:第一次 execute_sql 被改坏表名,模型重试后恢复。"""
     llm = FakeLLM([
