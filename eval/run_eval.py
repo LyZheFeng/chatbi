@@ -10,6 +10,8 @@
   单行 gold 答案点包含);gold SQL 不圆整,容差只在判定器一处
 - 模型降级/报错/未产出表格 → 不匹配
 - 出图率 = chart_spec 非空的比例(呈现层参考指标,不进执行准确率口径)
+- 评测 2.0 指标(与执行准确率分开报):图表选型准确率(应出图题 mark 是否与
+  questions.CHART_EXPECTATIONS 一致)+ 延迟 p50/p90,口径见 eval/metrics.py
 - 明细 JSON 落 eval/runs/,汇总表追加 eval/results.md
 """
 
@@ -25,7 +27,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from eval.questions import QUESTIONS  # noqa: E402
+from eval.metrics import chart_accuracy, chart_mark, latency_stats  # noqa: E402
+from eval.questions import CHART_EXPECTATIONS, QUESTIONS  # noqa: E402
 
 
 def normalize(rows: list[list]) -> list[tuple]:
@@ -110,6 +113,9 @@ def main() -> None:
     if args.only:
         wanted = {q.strip() for q in args.only.split(",")}
         questions = [q for q in questions if q["id"] in wanted]
+    if not questions:
+        print("没有匹配到题目(--limit/--only 过滤后为空),不跑批")
+        return
 
     records, matched, healed_and_matched, degraded = [], 0, 0, 0
     charted = 0
@@ -122,7 +128,7 @@ def main() -> None:
             resp.error is None
             and table_matches(resp.columns, resp.rows, gold.rows)
         )
-        chart_type = resp.chart_spec["mark"]["type"] if resp.chart_spec else ""
+        chart_type = chart_mark(resp.chart_spec) or ""
         if chart_type:
             charted += 1
         if ok:
@@ -147,11 +153,18 @@ def main() -> None:
 
     total = len(questions)
     acc = matched / total if total else 0
+    chart = chart_accuracy(records, CHART_EXPECTATIONS)
+    lat = latency_stats(latencies)
     summary = dict(
-        heal=args.heal, date=datetime.now().strftime("%Y-%m-%d %H:%M"), total=total,
+        heal=args.heal, chaos=args.chaos, llm_model=settings.llm_model,
+        date=datetime.now().strftime("%Y-%m-%d %H:%M"), total=total,
         matched=matched, accuracy=round(acc, 4), degraded=degraded,
         healed_and_matched=healed_and_matched, charted=charted,
-        avg_latency_ms=sum(latencies) // max(len(latencies), 1),
+        avg_latency_ms=lat["mean_ms"], p50_latency_ms=lat["p50_ms"], p90_latency_ms=lat["p90_ms"],
+        chart_matched=chart["matched"], chart_expected=chart["expected_charts"],
+        chart_accuracy=chart["accuracy"], chart_mismatches=chart["mismatches"],
+        no_chart_ok=chart["no_chart_ok"], no_chart_expected=chart["no_chart_expected"],
+        extra_charts=chart["extra_charts"], chart_by_type=chart["by_type"],
     )
 
     runs_dir = ROOT / "eval" / "runs"
@@ -163,6 +176,10 @@ def main() -> None:
     mode = ("注入⚡" if args.chaos else "自然") + ("/自愈" + ("开" if args.heal == "on" else "关"))
     print(f"\n=== {mode} === 准确率 {matched}/{total} = {acc:.1%},降级 {degraded},"
           f"出错后自愈成功 {healed_and_matched},出图 {charted}/{total},平均延迟 {summary['avg_latency_ms']}ms")
+    print(f"图表选型 {chart['matched']}/{chart['expected_charts']} = {chart['accuracy']:.1%}"
+          + (f",不符 {chart['mismatches']}" if chart["mismatches"] else ",全部符合预期")
+          + (f";榜单扩展出图 {chart['extra_charts']}(合规,不计错)" if chart["extra_charts"] else "")
+          + f";延迟 p50={lat['p50_ms']}ms p90={lat['p90_ms']}ms")
     print(f"明细:{detail}")
 
     results = ROOT / "eval" / "results.md"

@@ -1,6 +1,6 @@
 {
- "date": "2026-09-17 15:11",
- "llm_model": "Qwen3.8-27B",
+ "date": "2026-11-01 15:26",
+ "llm_model": "deepseek-v4.1-flash-1017",
  "db_path": "D:\\LLM_training\\chatbi\\data\\chatbi.db",
  "results": [
   {
@@ -11,15 +11,15 @@
    "failed": [],
    "mark": null,
    "row_count": 1,
-   "latency_ms": 10043,
+   "latency_ms": 2848,
    "n_steps": 3,
    "stats": {
     "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 3899
+    "llm_tokens": 5233
    },
-   "summary_head": "订单明细表(order_items)一共有 1000 行。"
+   "summary_head": "订单明细（order_items 表）一共有 1000 行，即 1000 条\"订单-商品\"级别的明细记录。"
   },
   {
    "qid": "s2-agg",
@@ -29,15 +29,15 @@
    "failed": [],
    "mark": "bar",
    "row_count": 3,
-   "latency_ms": 8008,
-   "n_steps": 3,
+   "latency_ms": 8587,
+   "n_steps": 4,
    "stats": {
-    "sql_attempts": 1,
+    "sql_attempts": 2,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 5605
+    "llm_tokens": 8252
    },
-   "summary_head": "三个商品大类的销售额和总利润(美元)如下:\n- Technology(技术类):销售额 756,983.02,总利润 1"
+   "summary_head": "三个商品大类（2012–2015 全期合计，全部明细行）中，Technology 销售额最高，Furniture 次之，"
   },
   {
    "qid": "s3-share",
@@ -47,33 +47,35 @@
    "failed": [],
    "mark": "arc",
    "row_count": 5,
-   "latency_ms": 11269,
-   "n_steps": 3,
+   "latency_ms": 8234,
+   "n_steps": 4,
    "stats": {
-    "sql_attempts": 1,
+    "sql_attempts": 2,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 5754
+    "llm_tokens": 8866
    },
-   "summary_head": "各市场销售额占比(按销售额降序):\n- Asia Pacific(亚太):$797,866.37,占 46.72%\n- "
+   "summary_head": "按市场统计销售额（2012–2015 全期，共 5 个市场）：\n\n| 市场 | 销售额(美元) | 占比 |\n|---|"
   },
   {
    "qid": "s4-ts",
    "cat": "时间序列",
    "question": "亚太市场按月的销售额趋势是怎样的?",
-   "ok": true,
-   "failed": [],
-   "mark": "line",
+   "ok": false,
+   "failed": [
+    "缺图表"
+   ],
+   "mark": null,
    "row_count": 47,
-   "latency_ms": 27225,
-   "n_steps": 3,
+   "latency_ms": 7097,
+   "n_steps": 4,
    "stats": {
-    "sql_attempts": 1,
+    "sql_attempts": 2,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 6512
+    "llm_tokens": 9895
    },
-   "summary_head": "亚太市场(Asia Pacific)按月销售额覆盖 2012-01 至 2015-12 共 47 个月(其中 2013-"
+   "summary_head": "亚太市场（Asia Pacific）2012-01 至 2015-12 共 47 个有销售的月份，销售额整体呈上升趋势："
   },
   {
    "qid": "s5-dirty",
@@ -83,15 +85,15 @@
    "failed": [],
    "mark": null,
    "row_count": 3,
-   "latency_ms": 5003,
-   "n_steps": 3,
+   "latency_ms": 5812,
+   "n_steps": 5,
    "stats": {
-    "sql_attempts": 1,
+    "sql_attempts": 3,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 4227
+    "llm_tokens": 8798
    },
-   "summary_head": "数量小于等于 0 的异常明细共 3 行,行号分别为:58(quantity=0)、62(quantity=-2)、220"
+   "summary_head": "全库 1000 条明细中，quantity ≤ 0 的异常明细共 3 行，行号（row_id）为 58、62、220：\n"
   }
  ]
 }

@@ -169,3 +169,26 @@ QUESTIONS: list[dict] = [
               "WHERE o.order_date >= '2014-01-01' AND o.order_date < '2015-01-01' GROUP BY p.sub_category "
               "HAVING SUM(i.profit) < 0 ORDER BY 2 ASC"),
 ]
+
+
+# ---------- 评测 2.0:图表选型预期(逐题标注,`eval/metrics.py` 据此算"选型准确率")----------
+# 期望值 = **题目意图**应得的 Vega-Lite mark:line / bar / arc / point,None = 按契约不出图。
+# 分组即口径,便于人工核对:
+#   折线(时间序列):q06 按月趋势、q20 按季度、q21 按年、q36 按月计数、q40 按月利润;
+#   柱状(单维度 + 数值,含排序榜单):q04 q05 q08 q10 q13 q16 q18 q22 q26 q27 q34 q35
+#     q37 q38 q39 q41 q45;
+#   不出图:单值/单行多列、编号列表、明细多列(≥2 维度)、类别 >30(q46 93 国)——画不出来也读不了。
+# 特例 q20:标准答案的季度列名是 SQL 表达式(值 1~4),按列形状会被选成散点;题目意图是季度
+#   趋势 → 期望折线。这题专门盯"模型把时间列答成表达式列名"的别名漂移(选型退化的真实入口)。
+# 说明:50 题自然问法下没有"占比"题(arc) 与两数值明细题(point),饼/散点由 smoke s3 与
+#   tests/test_charts.py 覆盖;这里不硬造题型来凑图型,缺口在 results.md 里写明。
+_CHART_GROUPS: dict[str | None, str] = {
+    "line": "q06 q20 q21 q36 q40",
+    "bar": "q04 q05 q08 q10 q13 q16 q18 q22 q26 q27 q34 q35 q37 q38 q39 q41 q45",
+    None: "q01 q02 q03 q07 q09 q11 q12 q14 q15 q17 q19 q23 q24 q25 q28 q29 q30 q31 q32 "
+          "q33 q42 q43 q44 q46 q47 q48 q49 q50",
+}
+
+CHART_EXPECTATIONS: dict[str, str | None] = {
+    qid: mark for mark, ids in _CHART_GROUPS.items() for qid in ids.split()
+}

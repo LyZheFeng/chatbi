@@ -1,0 +1,111 @@
+"""评测 2.0 指标单测:分位数、mark 提取、选型准确率与标注完整性(不依赖网络/真实库)。"""
+
+from __future__ import annotations
+
+import pytest
+
+from eval.metrics import (
+    CHART_LABEL,
+    chart_accuracy,
+    chart_mark,
+    latency_stats,
+    mark_of,
+    percentile,
+    summarize_run,
+)
+from eval.questions import CHART_EXPECTATIONS, QUESTIONS
+
+
+def test_percentile_linear_interpolation():
+    vals = [1, 2, 3, 4]
+    assert percentile(vals, 50) == 2.5
+    assert percentile(vals, 90) == 3.7
+    assert percentile(vals, 0) == 1
+    assert percentile(vals, 100) == 4
+
+
+def test_percentile_single_sample_and_bad_args():
+    assert percentile([7], 90) == 7
+    with pytest.raises(ValueError):
+        percentile([], 50)
+    with pytest.raises(ValueError):
+        percentile([1, 2], 101)
+
+
+def test_latency_stats_p50_p90():
+    got = latency_stats([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+    assert got["n"] == 10
+    assert got["p50_ms"] == 550  # k=4.5 → 500 与 600 之间线性插值
+    assert got["p90_ms"] == 910  # k=8.1 → 900 + 100×0.1
+    assert got["mean_ms"] == 550
+    assert (got["min_ms"], got["max_ms"]) == (100, 1000)
+
+
+def test_chart_mark_tolerates_layer_and_string_marks():
+    assert chart_mark({"mark": {"type": "bar"}}) == "bar"
+    assert chart_mark({"mark": "line"}) == "line"
+    assert chart_mark({"layer": [{"mark": {"type": "arc", "innerRadius": 60}}]}) == "arc"
+    assert chart_mark({"layer": [{"mark": "point"}]}) == "point"
+    assert chart_mark(None) is None
+    assert chart_mark({}) is None
+
+
+def test_mark_of_normalizes_empty_chart():
+    assert mark_of({"chart": ""}) is None
+    assert mark_of({"chart": None}) is None
+    assert mark_of({}) is None
+    assert mark_of({"chart": "bar"}) == "bar"
+
+
+def _rec(qid: str, chart: str | None, latency_ms: int = 1000) -> dict:
+    return {"id": qid, "chart": chart, "latency_ms": latency_ms}
+
+
+def test_chart_accuracy_counts_extra_chart_as_compliant_extension():
+    records = [
+        _rec("q06", "line"), _rec("q04", "bar"),
+        _rec("q01", None), _rec("q23", "bar"),  # q23:单值题被答成榜单后出图
+    ]
+    expected = {"q06": "line", "q04": "bar", "q01": None, "q23": None}
+    got = chart_accuracy(records, expected)
+    assert got["total"] == 4
+    assert got["expected_charts"] == 2
+    assert got["matched"] == 2
+    assert got["accuracy"] == 1.0
+    assert got["mismatches"] == []
+    assert got["no_chart_expected"] == 2
+    assert got["no_chart_ok"] == 1
+    assert got["extra_charts"] == ["q23"]  # 合规扩展:不计入选型错误
+
+
+def test_chart_accuracy_reports_mismatch():
+    got = chart_accuracy([_rec("q06", "bar")], {"q06": "line"})
+    assert got["matched"] == 0
+    assert got["accuracy"] == 0.0
+    assert got["mismatches"] == [{"id": "q06", "expected": "line", "actual": "bar"}]
+
+
+def test_chart_accuracy_fails_loud_on_missing_expectation():
+    with pytest.raises(KeyError):
+        chart_accuracy([_rec("q99", "bar")], {"q06": "line"})
+
+
+def test_chart_expectations_cover_question_bank_exactly():
+    assert set(CHART_EXPECTATIONS) == {q["id"] for q in QUESTIONS}
+    assert all(v is None or v in CHART_LABEL for v in CHART_EXPECTATIONS.values())
+    # q20 是别名漂移哨兵:标准答案列名是 SQL 表达式,题目意图仍是季度趋势 → 折线
+    assert CHART_EXPECTATIONS["q20"] == "line"
+
+
+def test_summarize_run_wires_chart_and_latency():
+    run = {
+        "summary": {"heal": "on", "chaos": False, "date": "2026-01-01 00:00",
+                    "accuracy": 0.5, "total": 2},
+        "records": [_rec("q06", "line", 1000), _rec("q04", "bar", 3000)],
+    }
+    got = summarize_run(run)
+    assert got["mode"] == "自然/自愈开"
+    assert got["chart"]["matched"] == 2
+    assert got["latency"] == {
+        "n": 2, "mean_ms": 2000, "p50_ms": 2000, "p90_ms": 2800, "min_ms": 1000, "max_ms": 3000,
+    }

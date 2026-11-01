@@ -21,6 +21,10 @@
 | 自然 · 自愈开/关(**Day 21,50 题**) | **100.0%**(50/50;中位数口径入提示后 q25 修复) |
 | 故障注入⚡ · 自愈关(Day 21,50 题) | **0%**(50 题全部优雅降级,明确报因) |
 | 故障注入⚡ · 自愈开(**Day 21,50 题**) | **100.0%**(50/50,全部"错误回传→一次修正"恢复;Day 19 消掉枚举探查步数后,自愈上限从 88% 上移) |
+| 自然 · 自愈开(**2026-11-01 换模型重评,50 题**) | **90.0%**(45/50;5 题失配均为"结论对、行数/标签格式/单位与 gold 不同",逐题明细见 `eval/results.md` 评测 2.0 节) |
+
+> 2026-11-01:LLM 切到 `deepseek-v4.1-flash-1017`(内网 OpenAI 兼容端点)后重评,严格口径 90.0%;
+> 表中此前的 100% 只代表旧模型。评测 2.0 的图表选型/延迟指标与口径见 `eval/results.md` 与 `eval/metrics.py`。
 
 - 数据:Global Superstore(公开电商订单数据集,1000 行明细)整理成 5 张关联表
   (geography / customers / products / orders / order_items),DDL 内嵌中文列注释;
@@ -52,9 +56,15 @@
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
 - 接口:FastAPI `POST /ask`(非流式)+ `GET /ask/stream`(SSE);界面:Next.js 前端(`web/`)。
-- 测试:`pytest tests` 99 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
+- **评测 2.0(2026-11-01)**:`eval/metrics.py` 在"执行准确率"之外产出两项新指标——
+  **图表选型准确率**(期望 mark 逐题标注在 `eval/questions.py`,按跑批记录比对;"该画没画/画错图型"都算错,
+  单值题被答成榜单后补图记合规扩展不计错)与**延迟 p50/p90**(单题端到端,线性插值)。
+  50 题自然模式首跑:选型 **20/22 = 90.9%**、延迟 **p50 4286 / p90 7146ms**;两处失手同因——时间序列
+  多带数值列触发折线"≤2 数值列"契约(柱/横条已是取前两个数值列,两条分支不对称),缺口已记录、修复留待决策。
+- 测试:`pytest tests` 109 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
   FakeLLM 脚本驱动、LLM 并发闸门与 token 统计、图表选型/解读/脏数据约定、API 鉴权/限流/异常兜底、
-  SSE 流式事件序/鉴权/限流/CORS、DDL 注释↔数据一致性回归),不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
+  SSE 流式事件序/鉴权/限流/CORS、DDL 注释↔数据一致性回归、评测 2.0 指标分位数/选型口径/标注完整性),
+  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
 - 未做、留给部署层(见 PROGRESS 路线图):分布式限流与 Prometheus 指标、异步任务队列/多 worker、
   熔断/fallback 模型、结构化查询意图与语义校验、schema 按需检索。
 
@@ -86,6 +96,10 @@ cp .env.example .env                # 默认 DeepSeek API 配置
 .venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8010          # 单 worker 演示(8010 与 rag-qa 的 8000 错开)
 .venv/Scripts/python.exe -X utf8 -m uvicorn app.api:app --port 8010 --workers 4   # 多 worker(注意:限流计数是进程内的)
 cd web && npm install && npm run dev                        # 前端 :http://localhost:3000(详见 web/README.md)
+
+# 3.5 评测(数字进 README 必须注明日期/口径;smoke 报数字前必跑)
+.venv/Scripts/python.exe -X utf8 eval/run_eval.py --heal on        # 50 题自然模式,明细落 eval/runs/,汇总追加 eval/results.md
+.venv/Scripts/python.exe -X utf8 eval/metrics.py --latest          # 评测 2.0:图表选型准确率 + 延迟 p50/p90(任意跑批可回放)
 
 # 4. MCP server(stdio transport;进程内不要 print 到 stdout,那是协议通道)
 .venv/Scripts/python.exe -m app.mcp_server
