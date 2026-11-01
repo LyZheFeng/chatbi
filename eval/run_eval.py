@@ -16,6 +16,8 @@
   命中次数记 stats.injection_hits,summary 汇总为 injection_hits(命中率决定该实验是否有效)
 - 评测 2.0 指标(与执行准确率分开报):图表选型准确率(应出图题 mark 是否与
   questions.CHART_EXPECTATIONS 一致)+ 延迟 p50/p90,口径见 eval/metrics.py
+- 解读忠实性(评测 2.0 第 2 项):chart_reading 里出现的每个数字都必须能追溯到最终结果表,
+  由 eval/fidelity.py 规则校验(模板生成,不新增 LLM 调用);0 违规是期望值
 - 明细 JSON 落 eval/runs/,汇总表追加 eval/results.md
 """
 
@@ -33,6 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from eval.fidelity import check_reading  # noqa: E402
 from eval.metrics import chart_accuracy, chart_mark, latency_stats  # noqa: E402
 from eval.questions import CHART_EXPECTATIONS, QUESTIONS  # noqa: E402
 
@@ -208,6 +211,7 @@ def main() -> None:
     records, matched, healed_and_matched, degraded = [], 0, 0, 0
     semantic_matched = 0
     charted = 0
+    fidelity_checked, fidelity_ok, fidelity_bad = 0, 0, []
     latencies: list[int] = []
     for q in questions:
         gold = db.run_select(gold_conn, q["gold"], cap=100_000, auto_limit=100_000)
@@ -222,8 +226,16 @@ def main() -> None:
             ok or table_matches_semantic(resp.columns, resp.rows, gold.rows)
         )
         chart_type = chart_mark(resp.chart_spec) or ""
+        chart_reading = resp.chart_reading or ""
+        bad_numbers: list[float] = []
         if chart_type:
             charted += 1
+            fidelity_checked += 1
+            bad_numbers = check_reading(chart_reading, resp.columns, resp.rows, chart_type)
+            if bad_numbers:
+                fidelity_bad.append({"id": q["id"], "numbers": bad_numbers, "reading": chart_reading[:200]})
+            else:
+                fidelity_ok += 1
         if ok:
             matched += 1
         if semantic_ok:
@@ -236,7 +248,8 @@ def main() -> None:
         records.append(dict(
             id=q["id"], tags=q["tags"], question=q["question"], match=ok,
             semantic_match=semantic_ok,
-            chart=chart_type, error=resp.error, stats=resp.stats, latency_ms=resp.latency_ms,
+            chart=chart_type, chart_reading=chart_reading, fidelity_violations=bad_numbers,
+            error=resp.error, stats=resp.stats, latency_ms=resp.latency_ms,
             steps=[s.tool for s in resp.steps], sql=resp.sql,
             columns=resp.columns, rows=resp.rows[:20],
             gold_rows=gold.rows[:20],
@@ -259,6 +272,8 @@ def main() -> None:
         matched=matched, accuracy=round(acc, 4),
         semantic_matched=semantic_matched, semantic_accuracy=round(semantic_acc, 4),
         injection_hits=injection_hits,
+        fidelity_checked=fidelity_checked, fidelity_ok=fidelity_ok,
+        fidelity_violations=fidelity_bad,
         degraded=degraded,
         healed_and_matched=healed_and_matched, charted=charted,
         avg_latency_ms=lat["mean_ms"], p50_latency_ms=lat["p50_ms"], p90_latency_ms=lat["p90_ms"],
@@ -284,6 +299,8 @@ def main() -> None:
           + (f",不符 {chart['mismatches']}" if chart["mismatches"] else ",全部符合预期")
           + (f";榜单扩展出图 {chart['extra_charts']}(合规,不计错)" if chart["extra_charts"] else "")
           + f";延迟 p50={lat['p50_ms']}ms p90={lat['p90_ms']}ms")
+    print(f"解读忠实性 {fidelity_ok}/{fidelity_checked} 条解读数字全部可追溯"
+          + (f";违规 {fidelity_bad}" if fidelity_bad else ""))
     print(f"明细:{detail}")
 
     results = ROOT / "eval" / "results.md"

@@ -198,6 +198,16 @@ Day 25-26 ✅ 统一 Landing 页(`D:\LLM_training\portfolio\`,demo 录制留给�
 - **口径边界**:50 题无占比题(arc)与两数值明细题(point),饼/散点由 smoke s3-share 与 `test_charts.py` 覆盖;
   "多返回行"与单行 gold 的答案点包含判定不对称,是否放宽留作方法论决策。
 
+## 评测 2.0 第三批:解读忠实性(2026-11-01 19:20–19:42)
+
+- **新增 `eval/fidelity.py`**:抽解读文本里的数字 → 从最终结果表**独立重算**允许集合(单元格/列和/分组和/
+  占比/首末变化率/最高最低比/相关系数/行数),集合外即判违规;日期与维度标签先遮蔽;纯规则,不新增 LLM 调用。
+- **`run_eval.py`**:跑批记录补 `chart_reading` 与 `fidelity_violations`,summary 落 `fidelity_checked/fidelity_ok`。
+- **验证(3 轮自然模式)**:23/23、22/22、26/26 条解读 **0 违规**(共 71 条);同轮严格 46/46/48、宽松 49/49/50、
+  选型 20/20/22。解读条数多于出图题数是"榜单扩展出图"也生成模板解读。
+- **gold 自检**:`python -X utf8 eval/fidelity.py` 对 50 题 gold 表跑 22 条解读 0 违规,可直接当回归。
+- 测试 **128 例全绿**(新增 `tests/test_eval_fidelity.py` 8 例)。
+
 ## 下一步(新会话)
 
 > 当前执行文件:`D:\LLM_training\optimization-plan.md`(2026-09-17 制定,推荐路线:第一部分已完成,后续按第二部分 Day 27-28 → 暂缓区)。
