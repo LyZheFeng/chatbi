@@ -6,14 +6,15 @@
 - 选型按列结构确定性判定,同表必同图(可回归测试)。
 
 选型(优先级从上到下,不满足则不画图,表格已足够):
-- 时间列(列名 month/月份/quarter/季度… 或值形如 YYYY[-MM[-DD]])+ 1~2 个数值列
-  → 折线;恰好是 年+季度/年+月 两列时自动合成 "2014Q1"/"2014-03" 一个横轴;
+- 时间列(列名 month/月份/quarter/季度… 或值形如 YYYY[-MM[-DD]])+ 数值列
+  → 折线(取前两个数值列,与柱/横条同口径;模型多带的订单数/数量列留在表格);
+  恰为 年+季度/年+月 两列时自动合成 "2014Q1"/"2014-03" 一个横轴;
   另带 ≤8 类的分组列时画多系列;
 - 恰 1 个维度列 + 数值列 → 柱状(取前两个数值列分组对比;类数 >12 或标签 >8 字改横条);
   问题含 占比/比例/构成/份额 且首个数值全正、类别 ≤6 → 饼图(只画首个数值列,模型附带的
   pct/比率列不重复入图);
 - 恰 2 个数值列、无维度 → 散点;
-- 其余(≥2 维度、≥3 数值、行 <2、类 >30)→ 不画。
+- 其余(≥2 维度、≥3 数值且非时间序列、行 <2、类 >30)→ 不画。
 
 脏数据呈现约定(与结论同口径,别图表剔了结论没剔):
 - 只剔除"画不了"的行(维度或数值为 NULL),剔除行数写进解读;表格仍全量展示;
@@ -99,8 +100,10 @@ def _select(question: str, cols: list[_Col], rows: list[list[Any]]) -> dict | No
         return None
     if periods and len(nums) == 1 and len(cats) == 1:
         return _plan_line(rows, periods, nums[0], group=cats[0])
-    if periods and len(nums) <= 2 and not cats:
-        return _plan_line(rows, periods, nums[0], measures=nums, group=None)
+    if periods and not cats:
+        # 时间序列取前两个数值列(与柱/横条同口径):模型在趋势题上常多带订单数/数量,
+        # 旧规则硬性 ≤2 会把整张图判"不画"(评测 2.0 首跑 q06/q40/smoke s4-ts 三处实证)
+        return _plan_line(rows, periods, nums[0], measures=nums[:2], group=None)
     if not periods and len(cats) == 1 and len(rows) <= 30:
         return _plan_bar(question, rows, cat=cats[0], nums=nums[:2])
     if not periods and not cats and len(nums) == 2:

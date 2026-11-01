@@ -73,6 +73,24 @@ def table_matches(agent_columns: list[str], agent_rows: list[list], gold_rows: l
     return False
 
 
+def ask_with_retry(service, question: str, *, attempts: int = 3, backoff_s: float = 10.0):
+    """整题重跑:LLM 侧 503/网络抖动不该把整轮 50 题跑批作废(2026-11-01 实跑撞上过)。
+
+    只重试**抛异常**的情况(服务故障);agent 内部优雅降级(error 字段)是模型行为,不重试。
+    退避递增(10s/20s),给上游容量恢复留时间。
+    """
+    for i in range(attempts):
+        try:
+            return service.ask(question)
+        except Exception as exc:  # noqa: BLE001 - 评测脚本:LLM/网络任何异常都值得整题重试
+            if i == attempts - 1:
+                raise
+            wait = backoff_s * (i + 1)
+            print(f"    ! 调用异常({type(exc).__name__}),{wait:.0f}s 后整题重试:{question[:16]}…",
+                  flush=True)
+            time.sleep(wait)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--heal", choices=["on", "off"], required=True)
@@ -123,7 +141,7 @@ def main() -> None:
     for q in questions:
         gold = db.run_select(gold_conn, q["gold"], cap=100_000, auto_limit=100_000)
         t0 = time.perf_counter()
-        resp = service.ask(q["question"])
+        resp = ask_with_retry(service, q["question"])
         ok = (
             resp.error is None
             and table_matches(resp.columns, resp.rows, gold.rows)

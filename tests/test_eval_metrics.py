@@ -14,6 +14,7 @@ from eval.metrics import (
     summarize_run,
 )
 from eval.questions import CHART_EXPECTATIONS, QUESTIONS
+from eval.run_eval import ask_with_retry
 
 
 def test_percentile_linear_interpolation():
@@ -109,3 +110,35 @@ def test_summarize_run_wires_chart_and_latency():
     assert got["latency"] == {
         "n": 2, "mean_ms": 2000, "p50_ms": 2000, "p90_ms": 2800, "min_ms": 1000, "max_ms": 3000,
     }
+
+
+class _FlakyService:
+    def __init__(self, outcomes: list):
+        self.outcomes = list(outcomes)
+        self.calls = 0
+
+    def ask(self, question: str):
+        self.calls += 1
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def test_ask_with_retry_passes_through_on_first_success():
+    svc = _FlakyService(["ok"])
+    assert ask_with_retry(svc, "q") == "ok"
+    assert svc.calls == 1
+
+
+def test_ask_with_retry_recovers_after_transient_failure():
+    svc = _FlakyService([RuntimeError("503"), RuntimeError("503"), "ok"])
+    assert ask_with_retry(svc, "q", backoff_s=0) == "ok"
+    assert svc.calls == 3
+
+
+def test_ask_with_retry_raises_after_attempts_exhausted():
+    svc = _FlakyService([RuntimeError("503")] * 3)
+    with pytest.raises(RuntimeError):
+        ask_with_retry(svc, "q", backoff_s=0)
+    assert svc.calls == 3

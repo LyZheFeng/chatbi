@@ -133,6 +133,17 @@ def test_line_two_measures_fold():
     assert spec["encoding"]["color"]["field"] == "指标"
 
 
+def test_line_takes_first_two_measures_when_model_adds_extra():
+    # 评测 2.0 实跑形态:趋势题模型多带订单数/数量列(4 个数值列),旧规则整张不画;
+    # 修法与柱/横条同口径——取前两个数值列,其余列留在表格
+    cols = ["ym", "sales", "orders", "items"]
+    rows = [["2012-01", 5048.6, 2, 2], ["2012-02", 11401.38, 3, 4], ["2012-03", 5188.86, 3, 3]]
+    spec, reading = build_chart("亚太市场按月的销售额趋势", cols, rows)
+    assert spec["mark"] == {"type": "line", "point": True}
+    assert spec["transform"][0]["fold"] == ["sales", "orders"]
+    assert "sales" in reading and "orders" in reading and "items" not in reading
+
+
 def test_multiline_with_group():
     cols = ["月份", "market", "sales"]
     rows = [
