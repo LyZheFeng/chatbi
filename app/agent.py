@@ -114,8 +114,8 @@ class ChatbiAgent:
         self.self_heal = self_heal
         self.max_sql_retries = max_sql_retries
         self.sql_timeout_s = sql_timeout_s
-        # 故障注入实验用(评估脚本 --chaos):仅改坏每次 run 的第一次 execute_sql,
-        # 生产链路恒为 None
+        # 故障注入实验用(评估脚本 --chaos):只改坏第一次"真正查表"的 execute_sql
+        # (探测/元数据类 SQL 原样放过,见 _exec_tool),生产链路恒为 None
         self.sql_mutator = sql_mutator
         self._mutated_once = False
         self.last_result: AgentResult | None = None  # stream() 跑完后的终态
@@ -184,12 +184,19 @@ class ChatbiAgent:
 
         raw_args = tc.function.arguments
         if name == "execute_sql" and self.sql_mutator is not None and not self._mutated_once:
-            self._mutated_once = True
+            # 注入只落在"真的能改写"的 SQL 上:探测/元数据查询(不含业务表名)原样放过,
+            # 留到下一次 execute_sql 再注入——否则实验里会有一部分题"注入空转"却仍答对,
+            # 把"注入/自愈关"的 0% 下限抬成 12–14%(2026-11-01 实测)
             try:
                 obj = json.loads(raw_args or "{}")
-                if isinstance(obj.get("sql"), str):
-                    obj["sql"] = self.sql_mutator(obj["sql"])
-                    raw_args = json.dumps(obj, ensure_ascii=False)
+                sql = obj.get("sql")
+                if isinstance(sql, str):
+                    mutated = self.sql_mutator(sql)
+                    if mutated != sql:
+                        obj["sql"] = mutated
+                        raw_args = json.dumps(obj, ensure_ascii=False)
+                        self._mutated_once = True
+                        state.stats["injection_hits"] = state.stats.get("injection_hits", 0) + 1
             except json.JSONDecodeError:
                 pass
 

@@ -14,7 +14,7 @@ from eval.metrics import (
     summarize_run,
 )
 from eval.questions import CHART_EXPECTATIONS, QUESTIONS
-from eval.run_eval import ask_with_retry
+from eval.run_eval import ask_with_retry, chaos_mutator, table_matches, table_matches_semantic
 
 
 def test_percentile_linear_interpolation():
@@ -142,3 +142,50 @@ def test_ask_with_retry_raises_after_attempts_exhausted():
     with pytest.raises(RuntimeError):
         ask_with_retry(svc, "q", backoff_s=0)
     assert svc.calls == 3
+
+
+# ---------- 宽松口径(评分器)----------
+
+
+def test_semantic_accepts_extra_ranking_rows():
+    gold = [[1, 0.48], [2, 0.44], [3, 0.40]]
+    agent = [[1, 0.48, 99], [2, 0.44, 98], [3, 0.40, 97], [4, 0.39, 96], [5, 0.38, 95]]
+    assert table_matches(["a", "b", "c"], agent, gold) is False
+    assert table_matches_semantic(["a", "b", "c"], agent, gold) is True
+
+
+def test_semantic_accepts_month_label_without_year():
+    gold = [["2014-01", 100], ["2014-02", 200]]
+    agent = [["01", 100], ["02", 200]]
+    assert table_matches(["m", "v"], agent, gold) is False
+    assert table_matches_semantic(["m", "v"], agent, gold) is True
+
+
+def test_semantic_accepts_percent_instead_of_ratio():
+    gold = [["Africa", 0.23906625]]
+    agent = [["Africa", 23.91]]
+    assert table_matches(["m", "r"], agent, gold) is False
+    assert table_matches_semantic(["m", "r"], agent, gold) is True
+
+
+def test_semantic_does_not_rescale_counts():
+    gold = [["EU", 5]]
+    agent = [["EU", 500]]
+    assert table_matches_semantic(["m", "v"], agent, gold) is False
+
+
+# ---------- 故障注入(chaos)----------
+
+
+def test_chaos_mutator_hits_from_table_not_alias():
+    # 裸词匹配会先撞上 `AS orders` 这个别名(它不会被 SQLite 执行),SQL 仍然合法 → 注入空转
+    sql = "SELECT COUNT(DISTINCT o.order_id) AS orders, SUM(i.sales) AS sales " \
+          "FROM order_items i JOIN orders o ON i.order_id = o.order_id"
+    got = chaos_mutator(sql)
+    assert "AS orders," in got  # 别名不动
+    assert "FROM order_items_typo i" in got
+
+
+def test_chaos_mutator_leaves_probe_sql_alone():
+    sql = "SELECT COUNT(*) FROM sqlite_master"
+    assert chaos_mutator(sql) == sql

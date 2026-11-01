@@ -149,6 +149,8 @@ def summarize_run(run: dict, source: str = "") -> dict:
         "chart": chart,
         "latency": lat,
         "execution_accuracy": s.get("accuracy"),
+        "semantic_accuracy": s.get("semantic_accuracy"),
+        "injection_hits": s.get("injection_hits"),
     }
 
 
@@ -195,6 +197,10 @@ def main() -> int:
     print(f"跑批:{shown}")
     print(f"时间/模式/模型:{got['date']} | {got['mode']} | {got['model'] or '(未记录)'}")
     print(f"执行准确率(原指标):{got['execution_accuracy']:.1%}" if got["execution_accuracy"] is not None else "")
+    if got["semantic_accuracy"] is not None:
+        print(f"宽松口径(并列):{got['semantic_accuracy']:.1%}")
+    if got["injection_hits"] is not None:
+        print(f"注入命中:{got['injection_hits']}/{got['total']}")
     print(
         f"图表选型:{c['matched']}/{c['expected_charts']} = {c['accuracy']:.1%} "
         f"({_fmt_type(c['by_type'])})"

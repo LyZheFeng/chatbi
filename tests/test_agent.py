@@ -271,3 +271,26 @@ def test_sql_mutator_breaks_only_first_attempt(conn):
     assert r.error is None and r.result.rows == [[4]]
     assert [s.ok for s in r.steps] == [False, True, True]
     assert r.stats["sql_failures"] == 1  # 只坏第一次
+
+
+def test_sql_mutator_skips_probe_sql_and_marks_hit(conn):
+    """注入只落在真查表的 SQL 上:首条探测查询原样放过,下一次 execute_sql 才被改坏。"""
+    import re
+
+    table_re = re.compile(r"\b(customers|orders|order_items|products|geography)\b")
+    llm = FakeLLM([
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM sqlite_master")]),  # 探测:不含业务表
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM customers")]),     # 注入落在这条
+        _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM customers")]),     # 修正后成功
+        _msg([_tc("final_answer", summary="4 个客户。")]),
+    ])
+    agent = ChatbiAgent(
+        llm, conn, cap=50, auto_limit=10,
+        sql_mutator=lambda sql: table_re.sub(lambda m: m.group(1) + "_typo", sql, count=1),
+    )
+    r = agent.run("多少客户")
+    assert r.error is None and r.result.rows == [[4]]
+    assert [s.ok for s in r.steps] == [True, False, True, True]
+    # 注入命中只记一次(探测那条不改写、不计数)
+    assert r.stats["injection_hits"] == 1
+    assert r.stats["sql_failures"] == 1

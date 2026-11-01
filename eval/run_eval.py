@@ -8,8 +8,12 @@
 规则(数字必须全量真实跑出,温度 0):
 - 执行准确率 = agent 最终表格与 gold 表格"值集合"一致(浮点圆整 2 位、行序无关、列子集投影、
   单行 gold 答案点包含);gold SQL 不圆整,容差只在判定器一处
+- 宽松口径(并列报告,不改历史严格口径):多返回行、比率↔百分比、月份标签带不带年份 视为等价,
+  另存 semantic_matched/semantic_accuracy;严格口径仍是唯一进 results.md 汇总行的指标
 - 模型降级/报错/未产出表格 → 不匹配
 - 出图率 = chart_spec 非空的比例(呈现层参考指标,不进执行准确率口径)
+- 故障注入(--chaos)只改坏**第一次真正查表**的 execute_sql,探测/元数据 SQL 原样放过;
+  命中次数记 stats.injection_hits,summary 汇总为 injection_hits(命中率决定该实验是否有效)
 - 评测 2.0 指标(与执行准确率分开报):图表选型准确率(应出图题 mark 是否与
   questions.CHART_EXPECTATIONS 一致)+ 延迟 p50/p90,口径见 eval/metrics.py
 - 明细 JSON 落 eval/runs/,汇总表追加 eval/results.md
@@ -19,9 +23,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from datetime import datetime
+from itertools import combinations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,8 +67,6 @@ def table_matches(agent_columns: list[str], agent_rows: list[list], gold_rows: l
     if len(agent_columns) == gold_width and normalize(agent_rows) == gold_set:
         return True
     if len(agent_columns) > gold_width:
-        from itertools import combinations
-
         for combo in combinations(range(len(agent_columns)), gold_width):
             projected = normalize([[row[i] for i in combo] for row in agent_rows])
             if len(gold_rows) == 1:
@@ -70,6 +74,77 @@ def table_matches(agent_columns: list[str], agent_rows: list[list], gold_rows: l
                     return True
             elif projected == gold_set:
                 return True
+    return False
+
+
+_MONTH_LABEL = re.compile(r"^\d{4}-(\d{2})(?:-\d{2})?$")
+_BARE_MONTH = re.compile(r"^\d{2}$")
+
+# 注入只改 FROM/JOIN 后面的业务表:裸词匹配会先撞上别名/列名
+# (如 `COUNT(...) AS orders`),SQL 仍然合法,注入等于空转
+_TABLE_REF = re.compile(r"\b(FROM|JOIN)\s+(order_items|orders|customers|products|geography)\b", re.I)
+
+
+def chaos_mutator(sql: str) -> str:
+    """故障注入:把第一条 FROM/JOIN 的业务表改成不存在的表;别名/字符串里的同名不动。"""
+    return _TABLE_REF.sub(lambda m: f"{m.group(1)} {m.group(2)}_typo", sql, count=1)
+
+
+def _cell_matches(gold, agent) -> bool:
+    """语义口径的单元格等价:数值允许比率↔百分比,字符串允许月份标签带不带年份。"""
+    if gold is None or agent is None:
+        return gold is None and agent is None
+    g_num = isinstance(gold, (int, float)) and not isinstance(gold, bool)
+    a_num = isinstance(agent, (int, float)) and not isinstance(agent, bool)
+    if g_num and a_num:
+        g, a = float(gold), float(agent)
+        if round(g, 2) == round(a, 2):
+            return True
+        # 比率 ↔ 百分比(q47/q23:模型给 ×100 的百分数,gold 是 0~1 的比率)。
+        # 只在小数量级一侧换算,避免把"计数 5 vs 500"这类当单位差异放过
+        if abs(g) < 1.5 or abs(a) < 1.5:
+            return round(g * 100, 2) == round(a, 2) or round(g, 2) == round(a / 100, 2)
+        return False
+    gs, as_ = str(gold), str(agent)
+    gm, am = _MONTH_LABEL.match(gs), _MONTH_LABEL.match(as_)
+    if gm and am:
+        return gm.group(1) == am.group(1)
+    # 一侧是 2014-01、另一侧只有 01(单年内按月的问法)
+    if gm and _BARE_MONTH.match(as_):
+        return gm.group(1) == as_
+    if am and _BARE_MONTH.match(gs):
+        return am.group(1) == gs
+    return gs == as_
+
+
+def _contains_rows(gold_rows: list[list], agent_rows: list[list]) -> bool:
+    """gold 每行都能在 agent 里找到唯一等价行(语义口径允许模型多返回行)。"""
+    pool = list(agent_rows)
+    for g in gold_rows:
+        for i, a in enumerate(pool):
+            if len(g) == len(a) and all(_cell_matches(gc, ac) for gc, ac in zip(g, a)):
+                pool.pop(i)
+                break
+        else:
+            return False
+    return True
+
+
+def table_matches_semantic(agent_columns: list[str], agent_rows: list[list], gold_rows: list[list]) -> bool:
+    """**宽松口径**(只用于并列报告,不改历史严格口径 `table_matches`)。
+
+    放开的只有三类"内容对、写法不同":排名题多返回行、比率↔百分比、月份标签带不带年份;
+    列子集投影与数值圆整沿用严格口径。
+    """
+    if not agent_columns or not gold_rows:
+        return False
+    width = len(gold_rows[0])
+    if len(agent_columns) < width:
+        return False
+    for combo in combinations(range(len(agent_columns)), width):
+        projected = [[row[i] for i in combo] for row in agent_rows]
+        if _contains_rows(gold_rows, projected):
+            return True
     return False
 
 
@@ -110,12 +185,7 @@ def main() -> None:
     from app.service import ChatbiService
 
     settings = Settings(self_heal=args.heal == "on")
-    mutator = None
-    if args.chaos:
-        table_re = re.compile(r"\b(order_items|orders|customers|products|geography)\b")
-
-        def mutator(sql: str) -> str:  # noqa: F811
-            return table_re.sub(lambda m: m.group(1) + "_typo", sql, count=1)
+    mutator = chaos_mutator if args.chaos else None
 
     service = ChatbiService(lambda: ChatbiAgent(
         LLM.from_settings(), connect_ro(settings.db_path),
@@ -136,6 +206,7 @@ def main() -> None:
         return
 
     records, matched, healed_and_matched, degraded = [], 0, 0, 0
+    semantic_matched = 0
     charted = 0
     latencies: list[int] = []
     for q in questions:
@@ -146,11 +217,17 @@ def main() -> None:
             resp.error is None
             and table_matches(resp.columns, resp.rows, gold.rows)
         )
+        # 宽松口径与严格口径并列记录(只用于报告);严格口径的结果不因此改变
+        semantic_ok = resp.error is None and (
+            ok or table_matches_semantic(resp.columns, resp.rows, gold.rows)
+        )
         chart_type = chart_mark(resp.chart_spec) or ""
         if chart_type:
             charted += 1
         if ok:
             matched += 1
+        if semantic_ok:
+            semantic_matched += 1
         if resp.error:
             degraded += 1
         if resp.stats.get("sql_failures", 0) > 0 and ok:
@@ -158,12 +235,13 @@ def main() -> None:
         latencies.append(resp.latency_ms)
         records.append(dict(
             id=q["id"], tags=q["tags"], question=q["question"], match=ok,
+            semantic_match=semantic_ok,
             chart=chart_type, error=resp.error, stats=resp.stats, latency_ms=resp.latency_ms,
             steps=[s.tool for s in resp.steps], sql=resp.sql,
             columns=resp.columns, rows=resp.rows[:20],
             gold_rows=gold.rows[:20],
         ))
-        flag = "✓" if ok else "✗"
+        flag = "✓" if ok else ("≈" if semantic_ok else "✗")
         print(f"{flag} {q['id']} [{q['tags']}] {resp.latency_ms}ms chart={chart_type or '-'} "
               f"attempts={resp.stats.get('sql_attempts', 0)} "
               f"fail={resp.stats.get('sql_failures', 0)} refl={resp.stats.get('reflections', 0)}"
@@ -171,12 +249,17 @@ def main() -> None:
 
     total = len(questions)
     acc = matched / total if total else 0
+    semantic_acc = semantic_matched / total if total else 0
+    injection_hits = sum((r["stats"] or {}).get("injection_hits", 0) for r in records)
     chart = chart_accuracy(records, CHART_EXPECTATIONS)
     lat = latency_stats(latencies)
     summary = dict(
         heal=args.heal, chaos=args.chaos, llm_model=settings.llm_model,
         date=datetime.now().strftime("%Y-%m-%d %H:%M"), total=total,
-        matched=matched, accuracy=round(acc, 4), degraded=degraded,
+        matched=matched, accuracy=round(acc, 4),
+        semantic_matched=semantic_matched, semantic_accuracy=round(semantic_acc, 4),
+        injection_hits=injection_hits,
+        degraded=degraded,
         healed_and_matched=healed_and_matched, charted=charted,
         avg_latency_ms=lat["mean_ms"], p50_latency_ms=lat["p50_ms"], p90_latency_ms=lat["p90_ms"],
         chart_matched=chart["matched"], chart_expected=chart["expected_charts"],
@@ -192,8 +275,11 @@ def main() -> None:
     detail.write_text(json.dumps({"summary": summary, "records": records}, ensure_ascii=False, indent=1), encoding="utf-8")
 
     mode = ("注入⚡" if args.chaos else "自然") + ("/自愈" + ("开" if args.heal == "on" else "关"))
-    print(f"\n=== {mode} === 准确率 {matched}/{total} = {acc:.1%},降级 {degraded},"
+    print(f"\n=== {mode} === 准确率 {matched}/{total} = {acc:.1%}"
+          f"(宽松口径 {semantic_matched}/{total} = {semantic_acc:.1%}),降级 {degraded},"
           f"出错后自愈成功 {healed_and_matched},出图 {charted}/{total},平均延迟 {summary['avg_latency_ms']}ms")
+    if args.chaos:
+        print(f"注入命中 {injection_hits}/{total}")
     print(f"图表选型 {chart['matched']}/{chart['expected_charts']} = {chart['accuracy']:.1%}"
           + (f",不符 {chart['mismatches']}" if chart["mismatches"] else ",全部符合预期")
           + (f";榜单扩展出图 {chart['extra_charts']}(合规,不计错)" if chart["extra_charts"] else "")
