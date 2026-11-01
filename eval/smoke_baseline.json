@@ -1,5 +1,5 @@
 {
- "date": "2026-11-01 23:00",
+ "date": "2026-11-02 00:15",
  "llm_model": "deepseek-v4.1-flash-1017",
  "db_path": "D:\\LLM_training\\chatbi\\data\\chatbi.db",
  "results": [
@@ -11,15 +11,15 @@
    "failed": [],
    "mark": null,
    "row_count": 1,
-   "latency_ms": 3000,
+   "latency_ms": 2758,
    "n_steps": 3,
    "stats": {
     "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 5842
+    "llm_tokens": 5839
    },
-   "summary_head": "订单明细表 order_items 一共有 1000 行（即每行代表一张订单中的一种商品，共 1000 条明细记录）。"
+   "summary_head": "订单明细表 order_items 一共有 1000 行（每行代表一张订单中的一种商品）。"
   },
   {
    "qid": "s2-agg",
@@ -29,15 +29,15 @@
    "failed": [],
    "mark": "bar",
    "row_count": 3,
-   "latency_ms": 4444,
+   "latency_ms": 3484,
    "n_steps": 3,
    "stats": {
     "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 6154
+    "llm_tokens": 6099
    },
-   "summary_head": "三个商品大类的销售额与总利润如下（按销售额降序）：\n1. Technology（科技）：销售额 756,983.02 美"
+   "summary_head": "按商品大类汇总（2012–2015 全部明细）：Technology 销售额 756,983.02 美元、总利润 145"
   },
   {
    "qid": "s3-share",
@@ -47,15 +47,15 @@
    "failed": [],
    "mark": "arc",
    "row_count": 5,
-   "latency_ms": 8154,
+   "latency_ms": 5130,
    "n_steps": 4,
    "stats": {
     "sql_attempts": 2,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 9198
+    "llm_tokens": 9076
    },
-   "summary_head": "按市场统计销售额及占比（2012–2015 全部订单，共匹配到 1,703,270.40 美元，占库内总销售额 1,70"
+   "summary_head": "按市场拆分销售额（2013–2014 全部明细，可关联地理的销售额合计约 170.33 万美元，总明细 170.77 万"
   },
   {
    "qid": "s4-ts",
@@ -65,15 +65,15 @@
    "failed": [],
    "mark": "line",
    "row_count": 47,
-   "latency_ms": 9129,
-   "n_steps": 4,
+   "latency_ms": 6204,
+   "n_steps": 3,
    "stats": {
-    "sql_attempts": 2,
+    "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 10972
+    "llm_tokens": 7393
    },
-   "summary_head": "亚太市场（Asia Pacific）销售额按月趋势（美元，2012-01 ~ 2015-12，共 47 个有销售月份）："
+   "summary_head": "亚太市场（Asia Pacific）2012-01 至 2015-12 共 47 个月有销售（2013 年 3 月无任何"
   },
   {
    "qid": "s5-dirty",
@@ -83,15 +83,15 @@
    "failed": [],
    "mark": null,
    "row_count": 3,
-   "latency_ms": 5685,
+   "latency_ms": 4165,
    "n_steps": 3,
    "stats": {
     "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 6316
+    "llm_tokens": 6234
    },
-   "summary_head": "共 3 行明细的数量 ≤ 0，行号（row_id）分别是 58、62、220：\n• row_id 58：订单 MX-20"
+   "summary_head": "数量（quantity）≤ 0 的异常明细共 3 行，行号分别为 58、62、220：\n1. row_id 58：订单 "
   }
  ]
 }

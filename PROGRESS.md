@@ -257,6 +257,23 @@ Day 25-26 ✅ 统一 Landing 页(`D:\LLM_training\portfolio\`,demo 录制留给�
 - **含义**:形状修复 + 双口径 + 散点选择器之后,自然准确率到 **100%(三轮)**;自愈价值 96–100pp 可复现;
   results.md 汇总表已换成 54 题最终口径,历史矩阵(50 题、修复前)保留对照。
 
+## Schema 进程内缓存(A1,2026-11-02 00:02–00:26)
+
+- **问题**:agent 每次提问先调 `get_schema`,库结构静态,却每次都读 `sqlite_master` 并对 5 张表各跑 `COUNT(*)`;
+  生产 service / 评测 / MCP server 三条链路共用同一份 schema,重复 IO。
+- **改动**:新增 `app/schema_cache.py`(有界 LRU 16 + 线程锁;键 = 库文件 + 表选择 + `mtime_ns/size` 签名,
+  建库原子替换即失效);`app/db.py: schema_text()` 改为缓存读写,渲染抽成 `_render_schema_text()`(输出逐字不变),
+  新增 `schema_cache_info()/clear_schema_cache()`;`eval/run_eval.py` 落 `schema_cache_hits/misses`,并按交接把
+  整题重试改为 10 分钟 ×3;新增 `scripts/run_rounds.py`(3 轮驱动、任一轮失败即停整批)、
+  `scripts/bench_schema_cache.py`;`scripts/make_report.py` 支持 `--date/--out` 并按文件名登记各轮跑批。
+- **验证(自然/自愈开,54 题 ×3 轮,优化前/后各 3 轮同一晚连跑)**:严格 54/54/54 → 53/52/54、宽松 100% ×6;
+  选型 26/26 ×3 → 25/25/26;忠实性 0 违规;内容缺失 0。严格 3 次差异全是形状(q35 多一行「region 缺失无法归属」×2、
+  q47 百分比写法 ×1);3 次 `--only q35,q45` 探针里 q35 额外行出现 1 次 → 模型采样波动,非本项改动。
+- **收益量化**:`bench_schema_cache.py` 冷 116µs → 热 8µs(14.5×);每轮 54 题只省 ~5.8ms(单题 p50 的 0.17%),
+  p50 3610–4106ms → 3788–3865ms 区间重叠——**端到端无可测变化**,如实记录;价值在去重复 IO + 为按需检索留底座。
+- **回归**:`pytest` 143 → 150 例全绿;冒烟 5/5 无漂移;`--date 2026-11-01` 重生成与已提交报告逐字节一致。
+- 报告:`notes/eval-report-2026-11-02.md`(6 次正式跑批 + 3 次探针全部落 `eval/runs/`,一行一个)。
+
 ## 下一步(新会话)
 
 > chatbi 全量优化(10 项)见 `notes/handoff-2026-11-02.md`;规则:每项 3 轮跑批、模型无响应等 10 分钟重试

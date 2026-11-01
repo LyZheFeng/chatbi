@@ -1,0 +1,189 @@
+{
+ "summary": {
+  "heal": "on",
+  "chaos": false,
+  "llm_model": "deepseek-v4.1-flash-1017",
+  "date": "2026-11-02 00:27",
+  "total": 2,
+  "matched": 1,
+  "accuracy": 0.5,
+  "semantic_matched": 2,
+  "semantic_accuracy": 1.0,
+  "injection_hits": 0,
+  "injection_valid": null,
+  "content_misses": [],
+  "shape_misses": [
+   "q35"
+  ],
+  "fidelity_checked": 2,
+  "fidelity_ok": 2,
+  "fidelity_violations": [],
+  "degraded": 0,
+  "healed_and_matched": 0,
+  "charted": 2,
+  "avg_latency_ms": 3579,
+  "p50_latency_ms": 3579,
+  "p90_latency_ms": 3857,
+  "chart_matched": 2,
+  "chart_expected": 2,
+  "chart_accuracy": 1.0,
+  "chart_mismatches": [],
+  "no_chart_ok": 0,
+  "no_chart_expected": 0,
+  "extra_charts": [],
+  "chart_by_type": {
+   "line": {
+    "expected": 0,
+    "matched": 0
+   },
+   "bar": {
+    "expected": 2,
+    "matched": 2
+   },
+   "arc": {
+    "expected": 0,
+    "matched": 0
+   },
+   "point": {
+    "expected": 0,
+    "matched": 0
+   }
+  },
+  "schema_cache_hits": 1,
+  "schema_cache_misses": 1
+ },
+ "records": [
+  {
+   "id": "q35",
+   "tags": "多表/聚合",
+   "question": "各市场分别有多少个客户?",
+   "match": false,
+   "semantic_match": true,
+   "chart": "bar",
+   "chart_reading": "5 项中最高是 Asia Pacific(334),其次 Europe(234),最低 Africa(51),最高约为最低的 6.5 倍。另有 1 行因字段缺失未画入,表格中仍可见。",
+   "fidelity_violations": [],
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 6206
+   },
+   "latency_ms": 3927,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT g.market, COUNT(DISTINCT c.customer_id) AS customer_cnt\nFROM customers c\nLEFT JOIN geography g ON c.country = g.country AND c.region = g.region\nGROUP BY g.market\nORDER BY customer_cnt DESC",
+   "columns": [
+    "market",
+    "customer_cnt"
+   ],
+   "rows": [
+    [
+     "Asia Pacific",
+     334
+    ],
+    [
+     "Europe",
+     234
+    ],
+    [
+     "LATAM",
+     126
+    ],
+    [
+     "USCA",
+     53
+    ],
+    [
+     "Africa",
+     51
+    ],
+    [
+     null,
+     2
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Africa",
+     51
+    ],
+    [
+     "Asia Pacific",
+     334
+    ],
+    [
+     "Europe",
+     234
+    ],
+    [
+     "LATAM",
+     126
+    ],
+    [
+     "USCA",
+     53
+    ]
+   ]
+  },
+  {
+   "id": "q45",
+   "tags": "多表/聚合/排序",
+   "question": "累计消费总额最高的 3 个客户,列出客户编号和消费总额。",
+   "match": true,
+   "semantic_match": true,
+   "chart": "bar",
+   "chart_reading": "3 项中最高是 AB-101051402(12,181.60),其次 CA-1277558(9,298.98),最低 FH-1436582(8,999.06),最高约为最低的 1.4 倍。",
+   "fidelity_violations": [],
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 6114
+   },
+   "latency_ms": 3231,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT o.customer_id, ROUND(SUM(i.sales), 2) AS total_sales\nFROM orders o\nJOIN order_items i ON i.order_id = o.order_id\nGROUP BY o.customer_id\nORDER BY total_sales DESC\nLIMIT 3",
+   "columns": [
+    "customer_id",
+    "total_sales"
+   ],
+   "rows": [
+    [
+     "AB-101051402",
+     12181.6
+    ],
+    [
+     "CA-1277558",
+     9298.98
+    ],
+    [
+     "FH-1436582",
+     8999.06
+    ]
+   ],
+   "gold_rows": [
+    [
+     "AB-101051402",
+     12181.6
+    ],
+    [
+     "CA-1277558",
+     9298.98
+    ],
+    [
+     "FH-1436582",
+     8999.06
+    ]
+   ]
+  }
+ ]
+}

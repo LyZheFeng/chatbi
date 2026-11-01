@@ -1,18 +1,23 @@
-"""生成项目报告:数据库 + 每一轮优化的测评结果(2026-11-01)。
+"""生成项目报告:数据库 + 每一轮优化的测评结果(按日期分文件)。
 
-用法:.venv/Scripts/python.exe -X utf8 scripts/make_report.py
-输出:notes/eval-report-2026-11-01.md(数字全部从 data/chatbi.db 与 eval/runs/*.json 现算)
+用法:
+    .venv/Scripts/python.exe -X utf8 scripts/make_report.py                       # 2026-11-01(默认)
+    .venv/Scripts/python.exe -X utf8 scripts/make_report.py --date 2026-11-02
+输出:notes/eval-report-<日期>.md(数字全部从 data/chatbi.db 与 eval/runs/*.json 现算)
+
+每一项优化在本文件里用**跑批文件名列表**登记(见 A1_BEFORE/A1_AFTER 等);
+登记的文件缺失时直接报错——报告不能静默少一轮,也不能手抄数字。
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "eval" / "runs"
-OUT = ROOT / "notes" / "eval-report-2026-11-01.md"
 DB = ROOT / "data" / "chatbi.db"
 
 # ---- 各轮优化对应的跑批文件(按时间窗口挑,名称即证据)----
@@ -91,6 +96,7 @@ def load_runs() -> tuple[dict[str, dict], list[dict]]:
             chart=s.get("chart_matched"), chart_exp=s.get("chart_expected"),
             fid=s.get("fidelity_ok"), fid_chk=s.get("fidelity_checked"),
             hits=s.get("injection_hits"), p50=s.get("p50_latency_ms"), p90=s.get("p90_latency_ms"),
+            cache_hits=s.get("schema_cache_hits"), cache_misses=s.get("schema_cache_misses"),
         )
     return by_file, ambiguous
 
@@ -117,9 +123,27 @@ def runs_table(by_file: dict[str, dict], ids: list[str]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
-    info = db_info()
-    by_file, ambiguous = load_runs()
+# ---- 2026-11-02 各轮优化对应的跑批文件(文件名即证据;缺失直接报错,不静默跳过)----
+# 优化 #1(A1 schema 缓存):前 3 轮是改动前代码,后 3 轮是缓存版本,同一晚连续跑、同一健康窗口。
+A1_BEFORE: list[str] = [
+    "heal-on-20261102-000611",
+    "heal-on-20261102-000954",
+    "heal-on-20261102-001342",
+]
+A1_AFTER: list[str] = [
+    "heal-on-20261102-001912",
+    "heal-on-20261102-002258",
+    "heal-on-20261102-002638",
+]
+
+
+def build_1101(info: dict, by_file: dict[str, dict], ambiguous: list[dict]) -> list[str]:
+    # 本文件是 2026-11-01 的历史快照:只统计当天及以前的跑批(11-02 的进另一份报告),
+    # 这样以后重跑 --date 2026-11-01 仍能逐字复现已提交的内容。
+    cutoff = "2026-11-01 23:59"
+    by_file = {k: v for k, v in by_file.items() if v["date"] <= cutoff}
+    ambiguous = [a for a in ambiguous if a["date"] <= cutoff]
+
     L: list[str] = []
     A = L.append
 
@@ -382,9 +406,187 @@ def main() -> None:
     A("- 边界:样本 54 题;判定只比「表里有没有答案」,不判「是否回答用户真实意图」;")
     A("  歧义判定为关键词规则(保留 summary 供人工复核);数字受时段与网关负载影响")
     A("")
+    return L
 
-    OUT.write_text("\n".join(L), encoding="utf-8")
-    print(f"写入 {OUT} ({len(L)} 段,{sum(1 for x in L if chr(10) in x)} 段含多行)")
+
+# ---------- 2026-11-02 ----------
+
+
+def _require(by_file: dict[str, dict], ids: list[str], what: str) -> None:
+    """登记的跑批文件必须真实存在:报告宁愿报错,也不能静默少一轮或手抄数字。"""
+    if not ids:
+        raise SystemExit(f"{what}:还没在 make_report.py 里登记跑批文件名")
+    missing = [x for x in ids if x not in by_file]
+    if missing:
+        raise SystemExit(f"{what}:登记的跑批文件不存在:{missing}")
+
+
+def _strict(by_file: dict[str, dict], ids: list[str]) -> str:
+    return "/".join(str(by_file[x]["strict"]) for x in ids)
+
+
+def _chart(by_file: dict[str, dict], ids: list[str]) -> str:
+    return "/".join(f"{by_file[x]['chart']}/{by_file[x]['chart_exp']}" for x in ids)
+
+
+def _semantic(by_file: dict[str, dict], ids: list[str]) -> str:
+    """宽松口径命中数(分母固定 54),3 轮并排。"""
+    return "/".join(str(by_file[x]["sem"]) for x in ids)
+
+
+def _chart_counts(by_file: dict[str, dict], ids: list[str]) -> str:
+    """只给命中数(分母固定是 26 道应出图题),3 轮并排更好读。"""
+    return "/".join(str(by_file[x]["chart"]) for x in ids)
+
+
+def _lat_range(by_file: dict[str, dict], ids: list[str]) -> str:
+    vals = [by_file[x]["p50"] for x in ids if by_file[x]["p50"] is not None]
+    return f"{min(vals)}–{max(vals)}ms" if vals else "—"
+
+
+def _cache_hits(by_file: dict[str, dict], ids: list[str]) -> str:
+    """每轮 '命中/总次数';优化前的跑批没有该字段(未记录)。"""
+    parts = []
+    for x in ids:
+        r = by_file[x]
+        hits, miss = r.get("cache_hits"), r.get("cache_misses")
+        if hits is None:
+            return "未记录"
+        parts.append(f"{hits}/{hits + (miss or 0)}")
+    return "、".join(parts)
+
+
+def build_1102(info: dict, by_file: dict[str, dict], ambiguous: list[dict]) -> list[str]:
+    _require(by_file, A1_BEFORE, "优化 #1 优化前")
+    _require(by_file, A1_AFTER, "优化 #1 优化后")
+
+    today = sorted((k for k in by_file if "-20261102-" in k), key=lambda k: by_file[k]["date"])
+    b_strict, a_strict = _strict(by_file, A1_BEFORE), _strict(by_file, A1_AFTER)
+    b_sem, a_sem = _semantic(by_file, A1_BEFORE), _semantic(by_file, A1_AFTER)
+    b_lat, a_lat = _lat_range(by_file, A1_BEFORE), _lat_range(by_file, A1_AFTER)
+    ambiguous_today = [a for a in ambiguous if a["date"].startswith("2026-11-02")]
+
+    L: list[str] = []
+    A = L.append
+    A("# chatbi 优化评测报告 · 2026-11-02")
+    A("")
+    A("> 由 `scripts/make_report.py --date 2026-11-02` 从 `eval/runs/*.json` 现算生成:")
+    A("> 结果表每一行都对应 `eval/runs/` 里一个真实明细文件,数字不手抄。")
+    A(">")
+    A("> 规则(2026-11-01 23:50 用户确认,本日全程遵守):① 每次验证 **3 轮**;② 模型无响应")
+    A("> (LLM 异常/超时/503)等 **10 分钟**再试、**最多 3 次**,3 次仍失败即停止该项并交回用户;")
+    A("> ③ 每项写清 `问题 → 改动 → 3 轮结果 → 说明`;④ 每项独立提交并推送。")
+    A("")
+    A("## 一、口径(沿用 2026-11-01,判定器未改)")
+    A("")
+    A("- 题库 54 题;严格口径 = 与 gold 表值集合一致(行序无关、列子集投影、单行 gold 答案点包含);")
+    A("  宽松口径并列报告(多返回行 / 比率↔百分比 / 月份标签带不带年份)")
+    A("- 指标:执行准确率、图表选型(应出图题的 mark)、延迟 p50/p90、解读忠实性(chart_reading 数字")
+    A("  必须能追溯到结果表)、内容缺失 / 形状差异、故障注入命中")
+    A(f"- 库:`data/chatbi.db`({info['size_kb']:.0f} KB,Global Superstore 5 表);本日未换模型、")
+    A("  未改提示词、未改判定器——只改 schema 的读取方式")
+    A("")
+
+    A("### 优化 #1:Schema 进程内缓存(A1,00:02–00:26)")
+    A("")
+    A("**问题**:每次提问 agent 都先调 `get_schema`,而 schema 是静态的;但每次都要读")
+    A("`sqlite_master`、再对 5 张表各跑一次 `COUNT(*)`。生产 service、评测脚本、MCP server")
+    A("三个调用方共用同一份 schema,这份重复 IO 纯属浪费;以后做「schema 按需检索」也需要这层缓存。")
+    A("")
+    A("**改动**")
+    A("")
+    A("- 新增 `app/schema_cache.py`:有界 LRU(16 条)+ 线程锁;键 = (库文件绝对路径, 请求的表名序列,")
+    A("  `st_mtime_ns + st_size` 签名)。建库脚本是**整库原子替换**,替换后签名必变,旧条目自然失效")
+    A("- `app/db.py`:`schema_text()` 改为「查缓存 → 未命中再渲染 → 写回」,渲染抽成")
+    A("  `_render_schema_text()`(输出与优化前逐字一致);新增 `schema_cache_info()` / `clear_schema_cache()`")
+    A("- `eval/run_eval.py`:summary 落 `schema_cache_hits/misses` 并打印,「缓存真的命中」成为跑批事实;")
+    A("  整题重试默认值按交接改为 **10 分钟 × 3 次**")
+    A("- 新增 `scripts/run_rounds.py`(3 轮驱动,任一轮失败即停止整批)、")
+    A("  `scripts/bench_schema_cache.py`(冷/热单次调用收益)")
+    A("- 新增 7 例单测 `tests/test_schema_cache.py`:命中不碰库(用 sqlite3 trace 回调数语句,不靠猜)、")
+    A("  内容变动即失效、表选择与未知表入键、`:memory:` 不缓存、LRU 有界、并发一致")
+    A("")
+    A("**为什么放 `db.schema_text` 而不是交接里提的 service / agent**:schema 只有一个出口,")
+    A("生产、评测、MCP 三条链路都从这里取;挂在 service 上评测就跑不到缓存,验收会变成「测了个寂寞」。")
+    A("")
+    A("**结果(优化前 3 轮)**")
+    A("")
+    A(runs_table(by_file, A1_BEFORE))
+    A("")
+    A("**结果(优化后 3 轮)**")
+    A("")
+    A(runs_table(by_file, A1_AFTER))
+    A("")
+    A("**说明**")
+    A("")
+    A(f"- **内容零缺失 ×3**:严格 {b_strict} → {a_strict},宽松口径 {b_sem} → {a_sem}(均为 54/54)。")
+    A("  严格口径差的 3 次全部是**形状差异**、不是答错:q35 多返回一行「region 缺失无法归属 2 人」(2 次)、")
+    A("  q47 用百分比 23.91 代替比率 0.2391(1 次)——内容缺失 0,正是 11-01 定双口径要分开的两类。")
+    A("- **这些差异与本项改动无关,是模型采样波动**:缓存只改 schema 读取路径(文本逐字不变),")
+    A("  不动表结构、提示词、判定器。为坐实这点另跑了 3 次 `--only q35,q45` 手工探针(2 题,")
+    A("  见附录):q35 的「无法归属」行 3 次里出现 1 次;q45 多带 `customer_name` 列是 11-01 就有的老习惯")
+    A("  (历史 54 次自然/注入跑批里 11 次),2 维度 + 1 数值按契约不出图 → 选型掉到 25/26。")
+    A(f"- **延迟**:p50 {b_lat} → {a_lat},两段区间重叠、无可测变化。单题 3–4s 由 LLM 往返主导,")
+    A("  schema 读取只占毫秒级——如实写「看不出收益」,不硬凑对比(交接 §5.6)。")
+    A(f"- **缓存命中**:优化后每轮 `命中/总 get_schema 次数` = {_cache_hits(by_file, A1_AFTER)};")
+    A("  键含「表选择」,模型偶尔用 `get_schema(tables=[...])` 子集问法会各占一个键,故 miss 不恒为 1。")
+    A("- **单次收益**(`scripts/bench_schema_cache.py`):冷 116µs/次 → 热 8µs/次(14.5×),单次省 108µs;")
+    A("  折算每轮 54 题只省约 5.8ms ≈ 单题 p50 的 **0.17%**。所以本项价值不在跑分,而在")
+    A("  ① 去掉每轮 54 次不必要的 DDL/COUNT 查询;② 为「schema 按需检索 / 第二数据集」留出进程内底座。")
+    A("- **边界**:绕过建库脚本**原地**改库时签名可能不变(缓存读到旧行数),需 `clear_schema_cache()`")
+    A("  或重启进程;项目里库一律由 `scripts/build_db.py` 原子构建、应用侧只读,该边界已写进")
+    A("  `notes/pitfalls.md`。")
+    A("- **回归**:`pytest` 143 → 150 例全绿;冒烟 5/5 无漂移;`--date 2026-11-01` 重生成与已提交的")
+    A("  11-01 报告**逐字节一致**(证明历史快照与脚本重构都没被动过)。")
+    A("")
+
+    A("## 总账:每轮关键变化")
+    A("")
+    A("| 轮次 | 严格(3 轮) | 宽松(3 轮) | 选型命中(3 轮,应出图 26 题) | p50(3 轮) | 关键变化 |")
+    A("|---|---|---|---|---|---|")
+    A(f"| #1 Schema 缓存 | {b_strict} → {a_strict} | {b_sem} → {a_sem} "
+      f"| {_chart_counts(by_file, A1_BEFORE)} → {_chart_counts(by_file, A1_AFTER)} | {b_lat} → {a_lat} "
+      f"| 每轮 54 次 `get_schema` 去掉重复 DDL/COUNT;内容缺失 0 ×6,严格差异全是形状;p50 无可测变化 |")
+    A("")
+
+    A("## 附录:全部跑批明细")
+    A("")
+    A("> 本日全部跑批文件(`eval/runs/*-20261102-*.json`),一行一个;点开文件名即见逐题记录。")
+    A("> 含 3 次 2 题手工探针(`--only q35,q45`,`--no-results-md`,不进汇总表),用于判断严格差异")
+    A("> 是「本次改动引入」还是「模型采样波动」。")
+    A("")
+    A("| # | 文件 | 时间 | 配置 | 模型 | 题数 | 严格 | 宽松 | 选型 | 忠实性 | p50/p90 |")
+    A("|---|---|---|---|---|---|---|---|---|---|---|")
+    for i, stem in enumerate(today, 1):
+        r = by_file[stem]
+        lat = f"{r['p50']}/{r['p90']}ms" if r["p50"] is not None else "—"
+        A(f"| {i} | `{stem}.json` | {r['date']} | {r['cfg']} | {r['model']} | {r['total']} "
+          f"| {r['strict']} | {r['sem'] if r['sem'] is not None else '—'} "
+          f"| {r['chart']}/{r['chart_exp']} | {r['fid']}/{r['fid_chk']} | {lat} |")
+    for a in ambiguous_today:
+        A(f"| — | `{a['file']}.json` | {a['date']} | 歧义 10 题 | — | {a['total']} | {a['passed']}/{a['total']} | — | — | — | — |")
+    A("")
+    return L
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="生成评测报告(按优化轮次,数字从 runs/*.json 现算)")
+    ap.add_argument("--date", default="2026-11-01", help="报告日期:2026-11-01 / 2026-11-02")
+    ap.add_argument("--out", default="", help="输出路径(默认 notes/eval-report-<日期>.md)")
+    args = ap.parse_args()
+
+    info = db_info()
+    by_file, ambiguous = load_runs()
+    if args.date == "2026-11-01":
+        lines = build_1101(info, by_file, ambiguous)
+    elif args.date == "2026-11-02":
+        lines = build_1102(info, by_file, ambiguous)
+    else:
+        raise SystemExit(f"未登记的日期:{args.date}(先在 make_report.py 里补一轮)")
+
+    out = Path(args.out) if args.out else ROOT / "notes" / f"eval-report-{args.date}.md"
+    out.write_text("\n".join(lines), encoding="utf-8")
+    print(f"写入 {out} ({len(lines)} 段)")
 
 
 if __name__ == "__main__":

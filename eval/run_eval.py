@@ -158,11 +158,13 @@ def classify_misses(records: list[dict]) -> tuple[list[str], list[str]]:
     return content, shape
 
 
-def ask_with_retry(service, question: str, *, attempts: int = 3, backoff_s: float = 10.0):
-    """整题重跑:LLM 侧 503/网络抖动不该把整轮 50 题跑批作废(2026-11-01 实跑撞上过)。
+def ask_with_retry(service, question: str, *, attempts: int = 3, backoff_s: float = 600.0):
+    """整题重跑:LLM 侧 503/网络抖动不该把整轮跑批作废(2026-11-01 实跑撞上过)。
 
     只重试**抛异常**的情况(服务故障);agent 内部优雅降级(error 字段)是模型行为,不重试。
-    退避递增(10s/20s),给上游容量恢复留时间。
+    2026-11-02 用户规则:模型无响应(LLM 异常/超时/503)时**等 10 分钟**再试,**最多 3 次**;
+    3 次仍失败则抛出,由驱动脚本 `scripts/run_rounds.py` 停止整批,把原因交回用户。
+    每次重试前固定等 600s(10 分钟),给上游容量恢复留时间。
     """
     for i in range(attempts):
         try:
@@ -206,6 +208,8 @@ def main() -> None:
         max_sql_retries=settings.max_sql_retries, sql_mutator=mutator,
     ))
     gold_conn = connect_ro(settings.db_path)
+    # A1:schema 缓存计数(取增量 = 本轮真实命中率,跨轮/跨进程不串味)
+    cache_before = db.schema_cache_info()
 
     questions = QUESTIONS
     if args.limit:
@@ -269,6 +273,10 @@ def main() -> None:
               f"fail={resp.stats.get('sql_failures', 0)} refl={resp.stats.get('reflections', 0)}"
               + (f" ERROR={resp.error[:60]}" if resp.error else ""), flush=True)
 
+    cache_after = db.schema_cache_info()
+    schema_cache_hits = cache_after["hits"] - cache_before["hits"]
+    schema_cache_misses = cache_after["misses"] - cache_before["misses"]
+
     total = len(questions)
     acc = matched / total if total else 0
     semantic_acc = semantic_matched / total if total else 0
@@ -294,6 +302,7 @@ def main() -> None:
         chart_accuracy=chart["accuracy"], chart_mismatches=chart["mismatches"],
         no_chart_ok=chart["no_chart_ok"], no_chart_expected=chart["no_chart_expected"],
         extra_charts=chart["extra_charts"], chart_by_type=chart["by_type"],
+        schema_cache_hits=schema_cache_hits, schema_cache_misses=schema_cache_misses,
     )
 
     runs_dir = ROOT / "eval" / "runs"
@@ -316,6 +325,9 @@ def main() -> None:
           + f";延迟 p50={lat['p50_ms']}ms p90={lat['p90_ms']}ms")
     print(f"解读忠实性 {fidelity_ok}/{fidelity_checked} 条解读数字全部可追溯"
           + (f";违规 {fidelity_bad}" if fidelity_bad else ""))
+    cache_total = schema_cache_hits + schema_cache_misses
+    print(f"schema 缓存命中 {schema_cache_hits}/{cache_total}"
+          + ("" if cache_total else "(本题集没有 get_schema 调用)"))
     print(f"明细:{detail}")
 
     results = ROOT / "eval" / "results.md"

@@ -11,11 +11,13 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import time
 from pathlib import Path
 
+from .schema_cache import SchemaCache, SchemaCacheKey
 from .schemas import SqlResult
 
 TABLES = ["geography", "customers", "products", "orders", "order_items"]
@@ -120,8 +122,64 @@ def schema_text(conn: sqlite3.Connection, tables: list[str] | None = None) -> st
 
     传入未知表名时给出明确提示(而不是静默丢弃),供模型自行纠正。
     只取部分表时关系图仍然返回——JOIN 路径信息与表数量无关。
+
+    A1(2026-11-02):结果按「库文件 + 表选择 + 文件签名」进程内缓存,命中时不再读
+    sqlite_master / COUNT(*);重建库(原子替换)后签名变化即自动失效。详见 app/schema_cache.py。
     """
-    requested = tables or TABLES
+    requested = list(tables or TABLES)
+    key = _schema_cache_key(conn, requested)
+    if key is not None:
+        cached = _SCHEMA_CACHE.get(key)
+        if cached is not None:
+            return cached
+    text = _render_schema_text(conn, requested)
+    if key is not None:
+        _SCHEMA_CACHE.put(key, text)
+    return text
+
+
+# ---------- schema 缓存(A1,2026-11-02) ----------
+# 缓存挂在 db.schema_text 这个唯一出口:生产 service、评测、MCP server 三条链路共用同一条代码路径。
+_SCHEMA_CACHE = SchemaCache()
+
+
+def clear_schema_cache() -> None:
+    """清空 schema 缓存(测试用;或绕过建库脚本原地改库后手动失效)。"""
+    _SCHEMA_CACHE.clear()
+
+
+def schema_cache_info() -> dict[str, int]:
+    """缓存计数 hits/misses/size:评测在 summary 里记录命中率,不让"缓存生效"只留在代码里。"""
+    return _SCHEMA_CACHE.info()
+
+
+def _schema_cache_key(conn: sqlite3.Connection, requested: list[str]) -> SchemaCacheKey | None:
+    """(库文件路径, 请求的表, mtime_ns+size);无文件库 / stat 失败 → None(不缓存)。"""
+    path = _db_file(conn)
+    if not path:
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return SchemaCacheKey(
+        db_file=os.path.normcase(os.path.abspath(path)),
+        tables=tuple(requested),
+        signature=(st.st_mtime_ns, st.st_size),
+    )
+
+
+def _db_file(conn: sqlite3.Connection) -> str:
+    """只读连接指向的库文件路径(:memory: 返回空串)。"""
+    try:
+        row = conn.execute("PRAGMA database_list").fetchone()
+    except sqlite3.Error:
+        return ""
+    return row[2] if row and len(row) > 2 and row[2] else ""
+
+
+def _render_schema_text(conn: sqlite3.Connection, requested: list[str]) -> str:
+    """真正读库渲染 schema(A1 之前的原逻辑,输出逐字不变)。"""
     wanted = [t for t in requested if t in TABLES] or TABLES
     unknown = [t for t in requested if t not in TABLES]
     parts = [ER_DIAGRAM]
