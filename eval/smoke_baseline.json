@@ -1,5 +1,5 @@
 {
- "date": "2026-11-01 15:44",
+ "date": "2026-11-01 23:00",
  "llm_model": "deepseek-v4.1-flash-1017",
  "db_path": "D:\\LLM_training\\chatbi\\data\\chatbi.db",
  "results": [
@@ -11,15 +11,15 @@
    "failed": [],
    "mark": null,
    "row_count": 1,
-   "latency_ms": 2617,
+   "latency_ms": 3000,
    "n_steps": 3,
    "stats": {
     "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 5218
+    "llm_tokens": 5842
    },
-   "summary_head": "订单明细表 order_items 共有 1000 行，即 1000 条\"订单-商品\"级明细记录。"
+   "summary_head": "订单明细表 order_items 一共有 1000 行（即每行代表一张订单中的一种商品，共 1000 条明细记录）。"
   },
   {
    "qid": "s2-agg",
@@ -29,15 +29,15 @@
    "failed": [],
    "mark": "bar",
    "row_count": 3,
-   "latency_ms": 6223,
-   "n_steps": 4,
+   "latency_ms": 4444,
+   "n_steps": 3,
    "stats": {
-    "sql_attempts": 2,
+    "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 8333
+    "llm_tokens": 6154
    },
-   "summary_head": "三个商品大类的销售额与总利润如下(全期 2012–2015 汇总，金额单位美元):\n\n| 商品大类 | 销售额 | 总利"
+   "summary_head": "三个商品大类的销售额与总利润如下（按销售额降序）：\n1. Technology（科技）：销售额 756,983.02 美"
   },
   {
    "qid": "s3-share",
@@ -47,15 +47,15 @@
    "failed": [],
    "mark": "arc",
    "row_count": 5,
-   "latency_ms": 7973,
+   "latency_ms": 8154,
    "n_steps": 4,
    "stats": {
     "sql_attempts": 2,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 8436
+    "llm_tokens": 9198
    },
-   "summary_head": "按市场汇总销售额，占比从高到低为：**Asia Pacific 46.72%（797,866.37 美元）、Europe"
+   "summary_head": "按市场统计销售额及占比（2012–2015 全部订单，共匹配到 1,703,270.40 美元，占库内总销售额 1,70"
   },
   {
    "qid": "s4-ts",
@@ -65,15 +65,15 @@
    "failed": [],
    "mark": "line",
    "row_count": 47,
-   "latency_ms": 9459,
+   "latency_ms": 9129,
    "n_steps": 4,
    "stats": {
     "sql_attempts": 2,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 10176
+    "llm_tokens": 10972
    },
-   "summary_head": "亚太市场（Asia Pacific）月度销售额趋势（按 geography.market 过滤，销售额取 order_i"
+   "summary_head": "亚太市场（Asia Pacific）销售额按月趋势（美元，2012-01 ~ 2015-12，共 47 个有销售月份）："
   },
   {
    "qid": "s5-dirty",
@@ -83,15 +83,15 @@
    "failed": [],
    "mark": null,
    "row_count": 3,
-   "latency_ms": 4328,
+   "latency_ms": 5685,
    "n_steps": 3,
    "stats": {
     "sql_attempts": 1,
     "sql_failures": 0,
     "reflections": 0,
-    "llm_tokens": 5727
+    "llm_tokens": 6316
    },
-   "summary_head": "全库共找到 3 条数量 ≤ 0 的异常明细，行号（row_id）分别是 58、62 和 220：\n\n1. row_id "
+   "summary_head": "共 3 行明细的数量 ≤ 0，行号（row_id）分别是 58、62、220：\n• row_id 58：订单 MX-20"
   }
  ]
 }
