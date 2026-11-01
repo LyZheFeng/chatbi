@@ -176,6 +176,8 @@ def main() -> None:
                         help="故障注入:每题第一次 execute_sql 的表名被强制改错,量恢复能力(非自然准确率)")
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 题(调试用)")
     parser.add_argument("--only", type=str, default="", help="只跑指定 id(逗号分隔,调试用)")
+    parser.add_argument("--no-results-md", action="store_true",
+                        help="不往 eval/results.md 追加汇总行(补题/冒烟等小跑批用)")
     args = parser.parse_args()
 
     import re
@@ -304,11 +306,12 @@ def main() -> None:
     print(f"明细:{detail}")
 
     results = ROOT / "eval" / "results.md"
-    with results.open("a", encoding="utf-8") as f:
-        f.write(
-            f"| {summary['date']} | {mode} | {matched}/{total} "
-            f"| {acc:.1%} | {degraded} | {healed_and_matched} | {charted}/{total} | {summary['avg_latency_ms']} |\n"
-        )
+    if not args.no_results_md:  # 补题/冒烟等小跑批不污染正式汇总表
+        with results.open("a", encoding="utf-8") as f:
+            f.write(
+                f"| {summary['date']} | {mode} | {matched}/{total} "
+                f"| {acc:.1%} | {degraded} | {healed_and_matched} | {charted}/{total} | {summary['avg_latency_ms']} |\n"
+            )
 
 
 if __name__ == "__main__":

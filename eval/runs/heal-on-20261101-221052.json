@@ -1,0 +1,418 @@
+{
+ "summary": {
+  "heal": "on",
+  "chaos": false,
+  "llm_model": "deepseek-v4.1-flash-1017",
+  "date": "2026-11-01 22:10",
+  "total": 4,
+  "matched": 4,
+  "accuracy": 1.0,
+  "semantic_matched": 4,
+  "semantic_accuracy": 1.0,
+  "injection_hits": 0,
+  "fidelity_checked": 4,
+  "fidelity_ok": 4,
+  "fidelity_violations": [],
+  "degraded": 0,
+  "healed_and_matched": 0,
+  "charted": 4,
+  "avg_latency_ms": 5414,
+  "p50_latency_ms": 5169,
+  "p90_latency_ms": 6863,
+  "chart_matched": 2,
+  "chart_expected": 4,
+  "chart_accuracy": 0.5,
+  "chart_mismatches": [
+   {
+    "id": "p03",
+    "expected": "point",
+    "actual": "bar"
+   },
+   {
+    "id": "p04",
+    "expected": "point",
+    "actual": "bar"
+   }
+  ],
+  "no_chart_ok": 0,
+  "no_chart_expected": 0,
+  "extra_charts": [],
+  "chart_by_type": {
+   "line": {
+    "expected": 0,
+    "matched": 0
+   },
+   "bar": {
+    "expected": 0,
+    "matched": 0
+   },
+   "arc": {
+    "expected": 2,
+    "matched": 2
+   },
+   "point": {
+    "expected": 2,
+    "matched": 0
+   }
+  }
+ },
+ "records": [
+  {
+   "id": "p01",
+   "tags": "占比/单维度",
+   "question": "各客户细分的销售额占比是多少?",
+   "match": true,
+   "semantic_match": true,
+   "chart": "arc",
+   "chart_reading": "3 类图内合计 1,707,717.38:Consumer 占比最大 51.1%(872,032.05),前三合计 100.0%。",
+   "fidelity_violations": [],
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 6173
+   },
+   "latency_ms": 5446,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT c.segment AS segment, ROUND(SUM(i.sales), 2) AS sales, ROUND(SUM(i.sales) * 100.0 / (SELECT SUM(sales) FROM order_items), 2) AS sales_pct FROM order_items i JOIN orders o ON i.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id GROUP BY c.segment ORDER BY sales DESC",
+   "columns": [
+    "segment",
+    "sales",
+    "sales_pct"
+   ],
+   "rows": [
+    [
+     "Consumer",
+     872032.05,
+     51.06
+    ],
+    [
+     "Corporate",
+     522513.33,
+     30.6
+    ],
+    [
+     "Home Office",
+     313172.0,
+     18.34
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Consumer",
+     872032.05
+    ],
+    [
+     "Corporate",
+     522513.33
+    ],
+    [
+     "Home Office",
+     313172.0
+    ]
+   ]
+  },
+  {
+   "id": "p02",
+   "tags": "占比/单维度",
+   "question": "各配送方式的销售额占比是多少?",
+   "match": true,
+   "semantic_match": true,
+   "chart": "arc",
+   "chart_reading": "4 类图内合计 1,707,717.38:Standard Class 占比最大 41.2%(704,353.05),前三合计 91.2%。",
+   "fidelity_violations": [],
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 6183
+   },
+   "latency_ms": 3848,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT o.ship_mode, SUM(oi.sales) AS sales, ROUND(SUM(oi.sales) * 100.0 / (SELECT SUM(sales) FROM order_items), 2) AS pct FROM order_items oi JOIN orders o ON oi.order_id = o.order_id GROUP BY o.ship_mode ORDER BY sales DESC",
+   "columns": [
+    "ship_mode",
+    "sales",
+    "pct"
+   ],
+   "rows": [
+    [
+     "Standard Class",
+     704353.05,
+     41.25
+    ],
+    [
+     "Second Class",
+     430751.05,
+     25.22
+    ],
+    [
+     "First Class",
+     422765.88,
+     24.76
+    ],
+    [
+     "Same Day",
+     149847.4,
+     8.77
+    ]
+   ],
+   "gold_rows": [
+    [
+     "Standard Class",
+     704353.05
+    ],
+    [
+     "Second Class",
+     430751.05
+    ],
+    [
+     "First Class",
+     422765.88
+    ],
+    [
+     "Same Day",
+     149847.4
+    ]
+   ]
+  },
+  {
+   "id": "p03",
+   "tags": "散点/两数值",
+   "question": "销售额最高的 8 个国家,它们的总销售额和总利润分别是多少?只看这两列,用散点展示",
+   "match": true,
+   "semantic_match": true,
+   "chart": "bar",
+   "chart_reading": "8 项中最高是 Australia(190,368.52),其次 China(160,494.10),最低 Mexico(75,930.79),最高约为最低的 2.5 倍。按 total_profit 计,最高是 India(36,467.61)。",
+   "fidelity_violations": [],
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 6563
+   },
+   "latency_ms": 4892,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT c.country, ROUND(SUM(oi.sales), 2) AS total_sales, ROUND(SUM(oi.profit), 2) AS total_profit\nFROM order_items oi\nJOIN orders o ON oi.order_id = o.order_id\nJOIN customers c ON o.customer_id = c.customer_id\nWHERE oi.sales IS NOT NULL\nGROUP BY c.country\nORDER BY total_sales DESC\nLIMIT 8;",
+   "columns": [
+    "country",
+    "total_sales",
+    "total_profit"
+   ],
+   "rows": [
+    [
+     "Australia",
+     190368.52,
+     27297.76
+    ],
+    [
+     "China",
+     160494.1,
+     30230.97
+    ],
+    [
+     "India",
+     153805.65,
+     36467.61
+    ],
+    [
+     "France",
+     135114.76,
+     17283.66
+    ],
+    [
+     "Germany",
+     91884.49,
+     14585.43
+    ],
+    [
+     "United Kingdom",
+     90469.5,
+     26086.92
+    ],
+    [
+     "Indonesia",
+     77283.38,
+     6743.59
+    ],
+    [
+     "Mexico",
+     75930.79,
+     12623.19
+    ]
+   ],
+   "gold_rows": [
+    [
+     190368.52,
+     27297.76
+    ],
+    [
+     160494.1,
+     30230.97
+    ],
+    [
+     153805.65,
+     36467.61
+    ],
+    [
+     135114.76,
+     17283.66
+    ],
+    [
+     91884.49,
+     14585.43
+    ],
+    [
+     90469.5,
+     26086.92
+    ],
+    [
+     77283.38,
+     6743.59
+    ],
+    [
+     75930.79,
+     12623.19
+    ]
+   ]
+  },
+  {
+   "id": "p04",
+   "tags": "散点/两数值",
+   "question": "消费额最高的 10 位客户,他们的总销售额和总利润是多少?只看这两列,用散点看关系",
+   "match": true,
+   "semantic_match": true,
+   "chart": "bar",
+   "chart_reading": "10 项中最高是 Adrian Barton(12,181.60),其次 Cynthia Arntzen(9,298.98),最低 Ann Steele(6,439.80),最高约为最低的 1.9 倍。按 total_profit 计,最高是 Adrian Barton(5,362.61)。",
+   "fidelity_violations": [],
+   "error": null,
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 0,
+    "reflections": 0,
+    "llm_tokens": 7537
+   },
+   "latency_ms": 7470,
+   "steps": [
+    "get_schema",
+    "execute_sql",
+    "final_answer"
+   ],
+   "sql": "SELECT c.customer_name, ROUND(SUM(i.sales), 2) AS total_sales, ROUND(SUM(i.profit), 2) AS total_profit\nFROM order_items i\nJOIN orders o ON o.order_id = i.order_id\nJOIN customers c ON c.customer_id = o.customer_id\nGROUP BY c.customer_id, c.customer_name\nORDER BY total_sales DESC\nLIMIT 10",
+   "columns": [
+    "customer_name",
+    "total_sales",
+    "total_profit"
+   ],
+   "rows": [
+    [
+     "Adrian Barton",
+     12181.6,
+     5362.61
+    ],
+    [
+     "Cynthia Arntzen",
+     9298.98,
+     3598.23
+    ],
+    [
+     "Fred Hopkins",
+     8999.06,
+     893.24
+    ],
+    [
+     "Vivek Grady",
+     8539.41,
+     2154.36
+    ],
+    [
+     "Barry Franz",
+     8141.07,
+     1900.29
+    ],
+    [
+     "Patrick Jones",
+     7958.58,
+     3979.08
+    ],
+    [
+     "Dave Poirier",
+     7569.83,
+     1682.72
+    ],
+    [
+     "Carol Adams",
+     6998.64,
+     2939.31
+    ],
+    [
+     "Peter Fuller",
+     6521.04,
+     1374.3
+    ],
+    [
+     "Ann Steele",
+     6439.8,
+     2447.1
+    ]
+   ],
+   "gold_rows": [
+    [
+     12181.6,
+     5362.61
+    ],
+    [
+     9298.98,
+     3598.23
+    ],
+    [
+     8999.06,
+     893.24
+    ],
+    [
+     8539.41,
+     2154.36
+    ],
+    [
+     8141.07,
+     1900.29
+    ],
+    [
+     7958.58,
+     3979.08
+    ],
+    [
+     7569.83,
+     1682.72
+    ],
+    [
+     6998.64,
+     2939.31
+    ],
+    [
+     6521.04,
+     1374.3
+    ],
+    [
+     6439.8,
+     2447.1
+    ]
+   ]
+  }
+ ]
+}

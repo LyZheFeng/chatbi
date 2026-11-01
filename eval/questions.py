@@ -168,6 +168,25 @@ QUESTIONS: list[dict] = [
               "JOIN products p ON p.product_id = i.product_id JOIN orders o ON i.order_id = o.order_id "
               "WHERE o.order_date >= '2014-01-01' AND o.order_date < '2015-01-01' GROUP BY p.sub_category "
               "HAVING SUM(i.profit) < 0 ORDER BY 2 ASC"),
+
+    # ---------- 评测 2.0 补题:arc / point 分支的自然问法(2026-11-01) ----------
+    dict(id="p01", tags="占比/单维度", question="各客户细分的销售额占比是多少?",
+         gold="SELECT c.segment, ROUND(SUM(i.sales),2) AS total_sales FROM order_items i "
+              "JOIN orders o ON i.order_id=o.order_id JOIN customers c ON o.customer_id=c.customer_id "
+              "GROUP BY c.segment ORDER BY total_sales DESC"),
+    dict(id="p02", tags="占比/单维度", question="各配送方式的销售额占比是多少?",
+         gold="SELECT o.ship_mode, ROUND(SUM(i.sales),2) AS total_sales FROM order_items i "
+              "JOIN orders o ON i.order_id=o.order_id GROUP BY o.ship_mode ORDER BY total_sales DESC"),
+    dict(id="p03", tags="散点/两数值", question="销售额最高的 8 个国家,它们的总销售额和总利润分别是多少?只看这两列,用散点展示",
+         gold="SELECT ROUND(SUM(i.sales),2) AS total_sales, ROUND(SUM(i.profit),2) AS total_profit "
+              "FROM order_items i JOIN orders o ON i.order_id=o.order_id "
+              "JOIN customers c ON o.customer_id=c.customer_id "
+              "JOIN geography g ON c.country=g.country AND c.region=g.region "
+              "GROUP BY g.country ORDER BY total_sales DESC LIMIT 8"),
+    dict(id="p04", tags="散点/两数值", question="消费额最高的 10 位客户,他们的总销售额和总利润是多少?只看这两列,用散点看关系",
+         gold="SELECT ROUND(SUM(i.sales),2) AS total_sales, ROUND(SUM(i.profit),2) AS total_profit "
+              "FROM order_items i JOIN orders o ON i.order_id=o.order_id "
+              "GROUP BY o.customer_id ORDER BY total_sales DESC LIMIT 10"),
 ]
 
 
@@ -180,11 +199,14 @@ QUESTIONS: list[dict] = [
 #   不出图:单值/单行多列、编号列表、明细多列(≥2 维度)、类别 >30(q46 93 国)——画不出来也读不了。
 # 特例 q20:标准答案的季度列名是 SQL 表达式(值 1~4),按列形状会被选成散点;题目意图是季度
 #   趋势 → 期望折线。这题专门盯"模型把时间列答成表达式列名"的别名漂移(选型退化的真实入口)。
-# 说明:50 题自然问法下没有"占比"题(arc) 与两数值明细题(point),饼/散点由 smoke s3 与
-#   tests/test_charts.py 覆盖;这里不硬造题型来凑图型,缺口在 results.md 里写明。
+# 说明:原 50 题自然问法没有"占比"题(arc) 与两数值明细题(point),饼/散点只由 smoke s3 与
+#   tests/test_charts.py 覆盖;2026-11-01 补 4 道自然问法(p01 p02 → arc,p03 p04 → point),
+#   让选型准确率的两个分支也有真实跑批覆盖。
 _CHART_GROUPS: dict[str | None, str] = {
     "line": "q06 q20 q21 q36 q40",
     "bar": "q04 q05 q08 q10 q13 q16 q18 q22 q26 q27 q34 q35 q37 q38 q39 q41 q45",
+    "arc": "p01 p02",
+    "point": "p03 p04",
     None: "q01 q02 q03 q07 q09 q11 q12 q14 q15 q17 q19 q23 q24 q25 q28 q29 q30 q31 q32 "
           "q33 q42 q43 q44 q46 q47 q48 q49 q50",
 }

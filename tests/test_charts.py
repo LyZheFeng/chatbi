@@ -193,6 +193,18 @@ def test_id_like_numeric_column_is_dimension_not_measure():
     assert spec["mark"] == {"type": "bar"}  # 编号列当维度,不进散点
 
 
+def test_scatter_hint_beats_dimension_column():
+    """题目明确要散点时,模型多带标签列也按散点画(2026-11-01 补题 p03/p04 实证:否则落成柱状)。"""
+    cols = ["country", "total_sales", "total_profit"]
+    rows = [["Australia", 190368.52, 36467.61], ["China", 159115.05, 28922.41], ["France", 118585.01, 20341.55]]
+    spec, reading = build_chart("把销售额最高的国家按销售额和利润画成散点", cols, rows)
+    assert spec["mark"]["type"] == "point"
+    assert "3 个点" in reading
+    # 没有散点意图时,同样三列仍是柱状(维度优先)
+    spec2, _ = build_chart("各国销售额和利润分别是多少", cols, rows)
+    assert spec2["mark"] == {"type": "bar"}
+
+
 def test_no_chart_cases():
     assert build_chart("总数", ["n"], [[5], [6]]) == (None, "")            # 列数不足
     assert build_chart("总量", ["k", "v"], [[1, 2]]) == (None, "")          # 行数不足

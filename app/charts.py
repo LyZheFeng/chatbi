@@ -91,6 +91,14 @@ def build_chart(
 # ---------- 选型 ----------
 
 
+_SCATTER_HINTS = ("散点", "相关", "关系")
+
+
+def _wants_scatter(question: str) -> bool:
+    """题目是否明确要"散点/相关性"视角——与"占比"决定饼图同层:题目意图优先于列形状。"""
+    return any(h in question for h in _SCATTER_HINTS)
+
+
 def _select(question: str, cols: list[_Col], rows: list[list[Any]]) -> dict | None:
     nums = [c for c in cols if c.kind == "num"]
     cats = [c for c in cols if c.kind == "cat"]
@@ -104,6 +112,10 @@ def _select(question: str, cols: list[_Col], rows: list[list[Any]]) -> dict | No
         # 时间序列取前两个数值列(与柱/横条同口径):模型在趋势题上常多带订单数/数量,
         # 旧规则硬性 ≤2 会把整张图判"不画"(评测 2.0 首跑 q06/q40/smoke s4-ts 三处实证)
         return _plan_line(rows, periods, nums[0], measures=nums[:2], group=None)
+    if not periods and len(nums) >= 2 and _wants_scatter(question):
+        # 用户明确要"散点/相关关系"时,即使模型多带了维度列也按散点画:
+        # 带标签的散点图的重点是两数值关系,维度列进了坐标轴反而变成柱状(2026-11-01 补题 p03/p04 实证)
+        return _plan_scatter(rows, nums[0], nums[1])
     if not periods and len(cats) == 1 and len(rows) <= 30:
         return _plan_bar(question, rows, cat=cats[0], nums=nums[:2])
     if not periods and not cats and len(nums) == 2:

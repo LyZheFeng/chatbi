@@ -98,6 +98,14 @@ def test_chart_expectations_cover_question_bank_exactly():
     assert CHART_EXPECTATIONS["q20"] == "line"
 
 
+def test_probe_questions_cover_arc_and_point():
+    """原 50 题没有占比/两数值题,2026-11-01 补 4 道,让 arc/point 分支有真实跑批覆盖。"""
+    ids = {q["id"] for q in QUESTIONS}
+    assert {"p01", "p02", "p03", "p04"} <= ids
+    assert CHART_EXPECTATIONS["p01"] == "arc" and CHART_EXPECTATIONS["p02"] == "arc"
+    assert CHART_EXPECTATIONS["p03"] == "point" and CHART_EXPECTATIONS["p04"] == "point"
+
+
 def test_summarize_run_wires_chart_and_latency():
     run = {
         "summary": {"heal": "on", "chaos": False, "date": "2026-01-01 00:00",
