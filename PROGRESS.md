@@ -259,6 +259,8 @@ Day 25-26 ✅ 统一 Landing 页(`D:\LLM_training\portfolio\`,demo 录制留给�
 
 ## 下一步(新会话)
 
+> chatbi 全量优化(10 项)见 `notes/handoff-2026-11-02.md`;规则:每项 3 轮跑批、模型无响应等 10 分钟重试
+> 最多 3 次(超限即停)、每项记录结果+说明、每项提交推送。
 > 当前执行文件:`D:\LLM_training\optimization-plan.md`(2026-09-17 制定,推荐路线:第一部分已完成,后续按第二部分 Day 27-28 → 暂缓区)。
 
 Day 25-26 的 Landing 页已完成:统一入口 + demo 大纲与嵌入点就位,视频用户自录。后续:
