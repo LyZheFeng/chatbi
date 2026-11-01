@@ -1,0 +1,286 @@
+{
+ "date": "2026-11-01 19:47",
+ "llm_model": "deepseek-v4.1-flash-1017",
+ "rounds": [
+  {
+   "round": 1,
+   "passed": 7,
+   "total": 10,
+   "records": [
+    {
+     "id": "a01",
+     "kind": "unanswerable",
+     "question": "2013 年的退货率是多少?",
+     "why": "库无退货表/退货字段",
+     "ok": true,
+     "reason": "说明缺失:没有、无法",
+     "error": null,
+     "summary": "**这个库算不出真正的退货率——数据里没有任何\"退货/退回\"字段。**\n\n我核对了全部 5 张表的结构:orders 只有订单号、下单日、发货日、配送方式、优先级、客户;order_items 只有销售额、数量、折扣、利润、运费,既没有 return_flag / is_returned 这类标记,也没有退货单表或不含订单的\"负向订单\"。因此 2013 年的退货率无法直接计算。\n\n顺便查了 2013 年的基本情况(共 180 张订单、202 条明细),若勉强用\"数量为负\"近似退货:2013 年为 0 条(0%),全库也只有 1 条(2015 年 MX-2015-MG1820518-42140,quantity=-2),样本太少,不能当退货率用。2013 年有 39 条明细利润为负,占明细的 19.31%,但那是折扣/成本导致的亏损,和退货不是一回事,也不应等同。\n\n**建议**:需要退货数据的话,要补充订单状态或退货表字段;若你有其他可用的退货口径(比如按\"负数量明细\"或按订单状态),告我口径我可以立刻按 2013 年重算。",
+     "columns": [
+      "orders_2013",
+      "items_2013",
+      "neg_qty_items",
+      "neg_qty_rate_pct",
+      "loss_item_pct"
+     ],
+     "row_count": 1,
+     "chart": false,
+     "sql": "SELECT COUNT(DISTINCT o.order_id) AS orders_2013,\n       COUNT(*) AS items_2013,\n       SUM(CASE WHEN i.quantity < 0 THEN 1 ELSE 0 END) AS neg_qty_items,\n       ROUND(100.0 * SUM(CASE WHEN i.quantity < 0 THEN 1 ELSE 0 END) / COUNT(*), 4) AS neg_qty_rate_pct,\n       ROUND(100.0 * SUM(CASE WHEN i.profit < 0 THEN 1 ELSE 0 END) / COUNT(*), 2) AS loss_item_pct\nFROM order_items i\nJOIN orders o ON i.order_id = o.order_id\nWHERE strftime('%Y', o.order_date) = '2013'",
+     "latency_ms": 11279,
+     "stats": {
+      "sql_attempts": 3,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 10124
+     }
+    },
+    {
+     "id": "a02",
+     "kind": "unanswerable",
+     "question": "每个客户的满意度评分是多少?",
+     "why": "库无满意度字段",
+     "ok": true,
+     "reason": "说明缺失:没有、无法",
+     "error": null,
+     "summary": "数据库中没有\"满意度评分\"这类字段，无法直接给出每个客户的满意度评分。\n\n已核对全部 5 张表：geography 只有国家/区域/市场；customers 只有编号、姓名、客户类型、城市、州、国家、区域、邮编（且邮编约 80% 为 NULL）；orders 只有下单/发货日期、配送方式、订单优先级；products 是商品分类；order_items 只有销售额、数量、折扣、利润、运费。全库没有任何评分（rating / satisfaction / review / score）类列，因此该指标在现有数据里无法计算，只能如实说明\"无数据\"，不做估算。\n\n如果目的是衡量客户体验，可用现有数据做替代性观察（数据量约 800 名客户、867 张订单）：\n- 复购频次：多数客户只有 1 单，例如销售额最高的 Adrian Barton (AB-101051402) 有 5 单、累计销售 12,181.60 美元，是少见的多次下单客户；\n- 折扣水平：平均折扣高（如 Adrian Barton 平均折扣 0.2545）可能影响感知与利润；\n- 盈利能力：Cynthia Arntzen 累计销售 9,298.98 美元、利润 3,598.23 美元，而 Fred Hopkins 销售 8,999.06 美元但利润仅 893.24 美元，反映成交质量差异；\n- 若\"满意度\"实际想表达的是配送体验，可用 ship_mode（First Class / Same Day / Second Class / Standard Class）与实际发货时长（ship_date - order_date）作代理指标，但需注意有 2 张订单 ship_date 早于 order_date（脏数据）。\n\n请确认您想用的替代口径（复购次数、发货时长、折扣率或利润率），我可以按该口径输出每个客户的明细。",
+     "columns": [
+      "customer_id",
+      "customer_name",
+      "segment",
+      "order_cnt",
+      "total_sales",
+      "total_profit",
+      "avg_discount",
+      "item_rows"
+     ],
+     "row_count": 10,
+     "chart": false,
+     "sql": "SELECT c.customer_id, c.customer_name, c.segment,\n       COUNT(DISTINCT o.order_id) AS order_cnt,\n       ROUND(SUM(i.sales), 2) AS total_sales,\n       ROUND(SUM(i.profit), 2) AS total_profit,\n       ROUND(AVG(i.discount), 4) AS avg_discount,\n       COUNT(i.row_id) AS item_rows\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.customer_id\nLEFT JOIN order_items i ON i.order_id = o.order_id\nGROUP BY c.customer_id\nORDER BY total_sales DESC\nLIMIT 10",
+     "latency_ms": 8424,
+     "stats": {
+      "sql_attempts": 1,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 6787
+     }
+    },
+    {
+     "id": "a03",
+     "kind": "unanswerable",
+     "question": "2012 年每个月的库存周转率是多少?",
+     "why": "库无库存表",
+     "ok": true,
+     "reason": "优雅降级:模型未调用 final_answer 即停止,已终止。",
+     "error": "模型未调用 final_answer 即停止,已终止。",
+     "summary": "",
+     "columns": [
+      "rows_total",
+      "orders_2012",
+      "min_d",
+      "max_d"
+     ],
+     "row_count": 1,
+     "chart": false,
+     "sql": null,
+     "latency_ms": 12268,
+     "stats": {
+      "sql_attempts": 2,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 9769
+     }
+    },
+    {
+     "id": "a04",
+     "kind": "unanswerable",
+     "question": "各商品的供应商名称和联系方式是什么?",
+     "why": "库无供应商字段",
+     "ok": true,
+     "reason": "说明缺失:没有、无法",
+     "error": null,
+     "summary": "数据库里没有供应商相关信息，无法回答。本库只有 5 张表（geography / customers / products / orders / order_items），其中 products 表仅有 product_id（商品编号）、product_name（商品名）、category（大类）、sub_category（子类）4 列，既没有供应商名称、也没有联系方式（电话/邮箱/联系人等）字段，也没有独立的 supplier 表；订单、客户、地理表同样不含供应商字段。如需供应商维度分析，需要补充供应商主数据（如 supplier_id、supplier_name、contact_name、phone、email、商品-供应商对应关系）后再关联查询。可提供的替代信息：商品维度现有字段，例如 FUR-BO-3176「Atlantic Metals Mobile 4-Shelf Bookcases, Custom Colors」属于 Furniture / Bookcases。",
+     "columns": [
+      "product_id",
+      "product_name",
+      "category",
+      "sub_category"
+     ],
+     "row_count": 100,
+     "chart": false,
+     "sql": "SELECT product_id, product_name, category, sub_category FROM products ORDER BY product_id",
+     "latency_ms": 4494,
+     "stats": {
+      "sql_attempts": 2,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 5802
+     }
+    },
+    {
+     "id": "a05",
+     "kind": "unanswerable",
+     "question": "订单的平均支付方式是什么?",
+     "why": "库无支付方式字段",
+     "ok": true,
+     "reason": "说明缺失:没有",
+     "error": null,
+     "summary": "先说明一点：这个库里没有\"支付方式（payment method）\"这个字段——orders 表只有下单日期、发货日期、配送方式（ship_mode）、订单优先级（order_priority）等，明细表也只有销售额/数量/折扣/利润/运费，因此\"支付方式\"的平均值无从计算（\"平均\"对枚举型字段本身也没有意义）。\n\n如果把问题理解为\"订单最常采用的履约方式（配送方式）\"，那么在全部 867 张订单中，出现最多的（众数）是 Standard Class：299 张，占 34.49%；其次是 First Class 266 张（30.68%）、Second Class 213 张（24.57%）、Same Day 89 张（10.27%）。\n\n若关心的是订单优先级，则最多的是 High：346 张（39.91%），Medium 264 张（30.45%）、Critical 222 张（25.61%）、Low 35 张（4.04%）。",
+     "columns": [
+      "ship_mode",
+      "order_cnt",
+      "pct"
+     ],
+     "row_count": 4,
+     "chart": true,
+     "sql": "SELECT ship_mode, COUNT(*) AS order_cnt, ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS pct FROM orders GROUP BY ship_mode ORDER BY order_cnt DESC",
+     "latency_ms": 9801,
+     "stats": {
+      "sql_attempts": 3,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 8807
+     }
+    },
+    {
+     "id": "b01",
+     "kind": "ambiguous",
+     "question": "销售额最高的市场是哪个?",
+     "why": "缺时间范围/口径(全期?某年?)",
+     "ok": false,
+     "reason": "静默给出结果(未澄清、未说明假设)",
+     "error": null,
+     "summary": "销售额最高的市场是 **Asia Pacific(亚太)**,销售额 797,866.37 美元,占全库总销售额(1,707,717.38 美元)约 47%。各市场排名:Asia Pacific 797,866.37 > Europe 503,568.21 > LATAM 231,207.80 > Africa 115,205.93 > USCA 55,422.09(美元)。说明:市场归属需经 customers 的 (country, region) 关联 geography,有 2 条明细(泰国、古巴的客户 region 缺失)无法归属市场,金额合计 4,446.98 美元,未计入以上分布。",
+     "columns": [
+      "market",
+      "total_sales",
+      "item_rows"
+     ],
+     "row_count": 5,
+     "chart": true,
+     "sql": "SELECT g.market, ROUND(SUM(i.sales), 2) AS total_sales, COUNT(*) AS item_rows\nFROM order_items i\nJOIN orders o ON o.order_id = i.order_id\nJOIN customers c ON c.customer_id = o.customer_id\nJOIN geography g ON g.country = c.country AND g.region = c.region\nGROUP BY g.market\nORDER BY total_sales DESC",
+     "latency_ms": 8201,
+     "stats": {
+      "sql_attempts": 3,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 11309
+     }
+    },
+    {
+     "id": "b02",
+     "kind": "ambiguous",
+     "question": "哪个客户最好?",
+     "why": "'最好'指标未定义(消费额/单量/利润?)",
+     "ok": true,
+     "reason": "澄清/假设口径:口径",
+     "error": null,
+     "summary": "“最好”按不同口径都能指向同一个客户：**Adrian Barton（客户号 AB-101051402，美国 Consumer 个人消费者）**。\n\n- 销售额第一：累计 12,181.60 美元（全场最高，第二名 Cynthia Arntzen 为 9,298.98）\n- 利润第一：5,362.61 美元，利润率 44.02%\n- 订单量与持续期：5 张订单（2012-12-19 至 2015-08-04），是老客而非一次性大单\n- 数据质量无异常：11 条明细，销售额无 NULL、数量无 0/负数\n\n参照：全部 800 位有成交客户的人均销售额仅 2,140 美元、人均利润 361.15 美元，Adrian Barton 的利润约为平均水平的 15 倍。\n\n若只看单张订单金额，第二名的 Patrick Jones（意大利 Corporate，1 单）利润率同为 50%、利润 3,979.08 也相当亮眼，但成交仅 1 次、销售额 7,958.58 低于 Adrian，复购与规模都不如他。因此综合销售规模、利润贡献和复购稳定性，最佳客户是 Adrian Barton。",
+     "columns": [
+      "customer_id",
+      "customer_name",
+      "segment",
+      "country",
+      "orders",
+      "sales",
+      "profit",
+      "margin"
+     ],
+     "row_count": 15,
+     "chart": false,
+     "sql": "SELECT c.customer_id, c.customer_name, c.segment, c.country,\n       COUNT(DISTINCT o.order_id) AS orders,\n       ROUND(SUM(i.sales), 2) AS sales,\n       ROUND(SUM(i.profit), 2) AS profit,\n       ROUND(SUM(i.profit) / NULLIF(SUM(i.sales), 0), 4) AS margin\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nJOIN order_items i ON i.order_id = o.order_id\nGROUP BY c.customer_id\nORDER BY profit DESC\nLIMIT 15",
+     "latency_ms": 13661,
+     "stats": {
+      "sql_attempts": 4,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 11671
+     }
+    },
+    {
+     "id": "b03",
+     "kind": "ambiguous",
+     "question": "2014 年的增长情况如何?",
+     "why": "增长指标未定义(销售额/订单数/利润)",
+     "ok": false,
+     "reason": "静默给出结果(未澄清、未说明假设)",
+     "error": null,
+     "summary": "2014 年是明显的增长年：全年销售额 45.54 万美元，比 2013 年的 35.26 万美元增长 29.2%（约 +10.28 万）；利润 8.47 万美元，比 2013 年的 4.55 万美元大增 86.0%；利润率从 12.9% 提升到 18.6%（+5.7 个百分点）。订单数 222 单、销量 1429 件，分别较上年的 180 单、1153 件增长约 23% 和 24%，说明增长由订单量和利润率改善共同驱动。\n\n分品类看，三大类全部正增长：Office Supplies 增长最快（+59.1%，10.02 万美元），Furniture +37.4%（14.66 万美元），体量最大的 Technology +14.1%（20.86 万美元，利润 4.09 万美元），是增长最慢但贡献最大的品类。\n\n分月看，2014 年波动较大：6 月（7.77 万美元）和 12 月（5.83 万美元）为两个高点，4 月（1.38 万美元）最低；8 月销售额 3.06 万美元但利润仅 652 美元，是全年盈利最差的月份，值得排查折扣或运费问题。\n\n放到更长周期看，2012→2015 销售额连续四年上升（29.4 万 → 35.3 万 → 45.5 万 → 60.6 万美元），2014 年处于稳健上升通道中。",
+     "columns": [
+      "yr",
+      "sales",
+      "profit",
+      "orders",
+      "qty",
+      "margin_pct"
+     ],
+     "row_count": 2,
+     "chart": true,
+     "sql": "SELECT strftime('%Y', o.order_date) AS yr,\n       ROUND(SUM(i.sales), 2) AS sales,\n       ROUND(SUM(i.profit), 2) AS profit,\n       COUNT(DISTINCT o.order_id) AS orders,\n       SUM(i.quantity) AS qty,\n       ROUND(SUM(i.profit) / SUM(i.sales) * 100, 2) AS margin_pct\nFROM orders o JOIN order_items i ON i.order_id = o.order_id\nWHERE strftime('%Y', o.order_date) IN ('2013','2014')\nGROUP BY yr ORDER BY yr",
+     "latency_ms": 11881,
+     "stats": {
+      "sql_attempts": 4,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 15691
+     }
+    },
+    {
+     "id": "b04",
+     "kind": "ambiguous",
+     "question": "平均订单金额是多少?",
+     "why": "口径未定:每单 vs 每明细;含不含脏数据",
+     "ok": true,
+     "reason": "澄清/假设口径:口径",
+     "error": null,
+     "summary": "按订单口径统计（先把每张订单的所有明细销售额求和，再对订单数取平均），全部 867 张订单的平均订单金额为 1974.24 美元，销售额合计 1,707,717.38 美元（约 170.8 万美元）。说明：order_items 中有 2 条明细的 sales 为 NULL，涉及 2 张订单，这些明细按非空销售额参与求和，因此这 2 张订单的实际金额可能被略微低估；若改用\"每明细行平均销售额\"口径，所得数值会明显偏低（约 1.7 万美元／1000 行 ≈ 1711 美元/行），与\"平均订单金额\"不是同一概念。",
+     "columns": [
+      "order_cnt",
+      "avg_order_sales",
+      "total_sales"
+     ],
+     "row_count": 1,
+     "chart": false,
+     "sql": "SELECT COUNT(*) AS order_cnt, ROUND(AVG(order_sales), 2) AS avg_order_sales, ROUND(SUM(order_sales), 2) AS total_sales\nFROM (SELECT o.order_id, SUM(oi.sales) AS order_sales\n      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id\n      GROUP BY o.order_id)",
+     "latency_ms": 10948,
+     "stats": {
+      "sql_attempts": 2,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 5965
+     }
+    },
+    {
+     "id": "b05",
+     "kind": "ambiguous",
+     "question": "各市场表现如何?",
+     "why": "多指标未指定(销售额/利润/客户数)",
+     "ok": false,
+     "reason": "静默给出结果(未澄清、未说明假设)",
+     "error": null,
+     "summary": "## 各市场整体表现(2012-01 ~ 2015-12,全站销售额 1,707,717 美元、利润 288,920 美元、整体利润率 16.9%)\n\n| 市场 | 订单数 | 客户数 | 销售额(美元) | 利润(美元) | 利润率 | 平均折扣 | 单均销售额 |\n|---|---|---|---|---|---|---|---|\n| Asia Pacific | 346 | 334 | 797,866 | 125,049 | 15.7% | 8.5% | 2,306 |\n| Europe | 235 | 234 | 503,568 | 89,122 | 17.7% | 8.8% | 2,143 |\n| LATAM | 127 | 126 | 231,208 | 34,749 | 15.0% | 7.0% | 1,821 |\n| Africa | 52 | 51 | 115,206 | 27,542 | 23.9% | 1.3% | 2,216 |\n| USCA | 105 | 53 | 55,422 | 12,278 | 22.2% | 15.0% | 528 |\n| 未匹配(客户 region 缺失) | 2 | 2 | 4,447 | 180 | 4.1% | 8.5% | 2,223 |\n\n关键结论:\n1. **Asia Pacific 是绝对主力**:占总销售额 46.7%(79.8 万)、总利润 43.3%,订单数也最多(346 单);利润率 15.7% 中等偏低,主要被 Furniture(31.5 万、利润率仅 11.8%)拖累,Technology 是利润引擎(34.5 万销售、利润率 20.1%)。\n2. **Europe 规模第二、质量最好**:50.4 万销售、利润率 17.7%,三大品类利润率都在 17%~19%,发展均衡。\n3. **Africa 利润率最高(23.9%)且几乎不打折(平均折扣仅 1.3%)**,但体量最小之一(11.5 万),是\"小而美\"市场,有扩量空间。\n4. **LATAM 规模第三(23.1 万)但利润率最低之一(15.0%)**,Furniture/Technology 利润率均仅 14%~15%。\n5. **USCA 最异常**:销售额仅 5.5 万、单均销售额 528 美元(不足其他市场的 1/4),平均折扣却高达 15%(全站最高),且 200 条明细中 43 条亏损(21.5%)、亏损明细销售额 9,116 美元;其 Office Supplies 利润率 30.2% 但 Furniture 仅 6.2%,靠 Office Supplies 撑住整体 22.2%。USCA 的销售高度依赖少数大客户(105 单仅 53 个客户)。\n6. **亏损面普遍存在**:Asia Pacific 有 62/364 条明细亏损(涉及销售额 11.6 万,为各市场最高),Europe 50/248,说明高折扣大单在拉低亚太与欧洲的实际利润率。\n\n补充说明:数据实际覆盖 2012-01-08~2015-12-31(非仅 2013-2014);2 条明细 sales 为 NULL、3 条 quantity≤0 已按原值参与求和(对汇总影响极小);有 2 单因客户 region 缺失无法归属市场,单列为\"未匹配\"(占销售 0.26%)。",
+     "columns": [
+      "market",
+      "orders",
+      "customers",
+      "qty",
+      "sales",
+      "profit",
+      "margin_pct",
+      "avg_discount_pct",
+      "sales_per_order"
+     ],
+     "row_count": 6,
+     "chart": true,
+     "sql": "SELECT COALESCE(g.market,'(region缺失)') AS market,\n       COUNT(DISTINCT o.order_id) AS orders,\n       COUNT(DISTINCT o.customer_id) AS customers,\n       SUM(i.quantity) AS qty,\n       ROUND(SUM(i.sales),2) AS sales,\n       ROUND(SUM(i.profit),2) AS profit,\n       ROUND(SUM(i.profit)/SUM(i.sales)*100,2) AS margin_pct,\n       ROUND(AVG(i.discount)*100,2) AS avg_discount_pct,\n       ROUND(SUM(i.sales)/COUNT(DISTINCT o.order_id),2) AS sales_per_order\nFROM order_items i\nJOIN orders o ON o.order_id = i.order_id\nJOIN customers c ON c.customer_id = o.customer_id\nLEFT JOIN geography g ON g.country = c.country AND g.region = c.region\nGROUP BY COALESCE(g.market,'(region缺失)')\nORDER BY sales DESC",
+     "latency_ms": 16253,
+     "stats": {
+      "sql_attempts": 4,
+      "sql_failures": 0,
+      "reflections": 0,
+      "llm_tokens": 12453
+     }
+    }
+   ]
+  }
+ ]
+}
