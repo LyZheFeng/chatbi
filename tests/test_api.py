@@ -27,7 +27,10 @@ def client(monkeypatch):
 
 
 def test_health(client):
-    assert client.get("/health").json() == {"status": "ok"}
+    body = client.get("/health").json()
+    assert body["status"] == "ok"
+    # 前端侧栏展示生成模型：字段必须在且非空，但不与环境里的具体模型名耦合
+    assert isinstance(body["llm_model"], str) and body["llm_model"]
 
 
 def test_ask_happy(client):

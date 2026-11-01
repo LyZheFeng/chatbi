@@ -52,7 +52,7 @@
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
 - 接口:FastAPI `POST /ask`(非流式)+ `GET /ask/stream`(SSE);界面:Next.js 前端(`web/`)。
-- 测试:`pytest tests` 96 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
+- 测试:`pytest tests` 99 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
   FakeLLM 脚本驱动、LLM 并发闸门与 token 统计、图表选型/解读/脏数据约定、API 鉴权/限流/异常兜底、
   SSE 流式事件序/鉴权/限流/CORS、DDL 注释↔数据一致性回归),不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
 - 未做、留给部署层(见 PROGRESS 路线图):分布式限流与 Prometheus 指标、异步任务队列/多 worker、
