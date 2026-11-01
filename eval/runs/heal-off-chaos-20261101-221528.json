@@ -1,0 +1,86 @@
+{
+ "summary": {
+  "heal": "off",
+  "chaos": true,
+  "llm_model": "deepseek-v4.1-flash-1017",
+  "date": "2026-11-01 22:15",
+  "total": 1,
+  "matched": 0,
+  "accuracy": 0.0,
+  "semantic_matched": 0,
+  "semantic_accuracy": 0.0,
+  "injection_hits": 1,
+  "injection_valid": true,
+  "content_misses": [
+   "q01"
+  ],
+  "shape_misses": [],
+  "fidelity_checked": 0,
+  "fidelity_ok": 0,
+  "fidelity_violations": [],
+  "degraded": 1,
+  "healed_and_matched": 0,
+  "charted": 0,
+  "avg_latency_ms": 2115,
+  "p50_latency_ms": 2115,
+  "p90_latency_ms": 2115,
+  "chart_matched": 0,
+  "chart_expected": 0,
+  "chart_accuracy": 0.0,
+  "chart_mismatches": [],
+  "no_chart_ok": 1,
+  "no_chart_expected": 1,
+  "extra_charts": [],
+  "chart_by_type": {
+   "line": {
+    "expected": 0,
+    "matched": 0
+   },
+   "bar": {
+    "expected": 0,
+    "matched": 0
+   },
+   "arc": {
+    "expected": 0,
+    "matched": 0
+   },
+   "point": {
+    "expected": 0,
+    "matched": 0
+   }
+  }
+ },
+ "records": [
+  {
+   "id": "q01",
+   "tags": "单表/计数",
+   "question": "订单明细一共有多少行?",
+   "match": false,
+   "semantic_match": false,
+   "chart": "",
+   "chart_reading": "",
+   "fidelity_violations": [],
+   "error": "SQL 执行失败(自愈已关闭,不重试):OperationalError: no such table: order_items_typo",
+   "stats": {
+    "sql_attempts": 1,
+    "sql_failures": 1,
+    "reflections": 0,
+    "injection_hits": 1,
+    "llm_tokens": 3499
+   },
+   "latency_ms": 2115,
+   "steps": [
+    "get_schema",
+    "execute_sql"
+   ],
+   "sql": null,
+   "columns": [],
+   "rows": [],
+   "gold_rows": [
+    [
+     1000
+    ]
+   ]
+  }
+ ]
+}

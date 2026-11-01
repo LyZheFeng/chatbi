@@ -14,7 +14,7 @@ from eval.metrics import (
     summarize_run,
 )
 from eval.questions import CHART_EXPECTATIONS, QUESTIONS
-from eval.run_eval import ask_with_retry, chaos_mutator, table_matches, table_matches_semantic
+from eval.run_eval import ask_with_retry, chaos_mutator, classify_misses, table_matches, table_matches_semantic
 
 
 def test_percentile_linear_interpolation():
@@ -197,3 +197,21 @@ def test_chaos_mutator_hits_from_table_not_alias():
 def test_chaos_mutator_leaves_probe_sql_alone():
     sql = "SELECT COUNT(*) FROM sqlite_master"
     assert chaos_mutator(sql) == sql
+
+
+# ---------- 失败分类(内容缺失 vs 形状差异)----------
+
+
+def test_classify_misses_splits_content_and_shape():
+    records = [
+        {"id": "q01", "match": True, "semantic_match": True},
+        {"id": "q28", "match": False, "semantic_match": False},  # 内容缺失:宽松口径也救不回
+        {"id": "q08", "match": False, "semantic_match": True},   # 形状差异:多返回排名行
+    ]
+    content, shape = classify_misses(records)
+    assert content == ["q28"] and shape == ["q08"]
+
+
+def test_classify_misses_all_pass():
+    records = [{"id": "q01", "match": True, "semantic_match": True}]
+    assert classify_misses(records) == ([], [])

@@ -151,6 +151,13 @@ def table_matches_semantic(agent_columns: list[str], agent_rows: list[list], gol
     return False
 
 
+def classify_misses(records: list[dict]) -> tuple[list[str], list[str]]:
+    """严格失配拆两类:content = 宽松口径也救不回的内容缺失;shape = 写法差异(多返回行/百分比/标签)。"""
+    content = [r["id"] for r in records if not r["match"] and not r.get("semantic_match")]
+    shape = [r["id"] for r in records if not r["match"] and r.get("semantic_match")]
+    return content, shape
+
+
 def ask_with_retry(service, question: str, *, attempts: int = 3, backoff_s: float = 10.0):
     """整题重跑:LLM 侧 503/网络抖动不该把整轮 50 题跑批作废(2026-11-01 实跑撞上过)。
 
@@ -266,6 +273,9 @@ def main() -> None:
     acc = matched / total if total else 0
     semantic_acc = semantic_matched / total if total else 0
     injection_hits = sum((r["stats"] or {}).get("injection_hits", 0) for r in records)
+    injection_valid = (injection_hits == total) if args.chaos else None
+    # 严格失配拆两类:内容缺失(宽松口径也救不回,必须为零) vs 形状差异(多返回行/百分比/标签)
+    content_misses, shape_misses = classify_misses(records)
     chart = chart_accuracy(records, CHART_EXPECTATIONS)
     lat = latency_stats(latencies)
     summary = dict(
@@ -273,7 +283,8 @@ def main() -> None:
         date=datetime.now().strftime("%Y-%m-%d %H:%M"), total=total,
         matched=matched, accuracy=round(acc, 4),
         semantic_matched=semantic_matched, semantic_accuracy=round(semantic_acc, 4),
-        injection_hits=injection_hits,
+        injection_hits=injection_hits, injection_valid=injection_valid,
+        content_misses=content_misses, shape_misses=shape_misses,
         fidelity_checked=fidelity_checked, fidelity_ok=fidelity_ok,
         fidelity_violations=fidelity_bad,
         degraded=degraded,
@@ -296,7 +307,9 @@ def main() -> None:
           f"(宽松口径 {semantic_matched}/{total} = {semantic_acc:.1%}),降级 {degraded},"
           f"出错后自愈成功 {healed_and_matched},出图 {charted}/{total},平均延迟 {summary['avg_latency_ms']}ms")
     if args.chaos:
-        print(f"注入命中 {injection_hits}/{total}")
+        print(f"注入命中 {injection_hits}/{total}" + ("" if injection_valid else " ⚠️ 未全命中,该配置不可比"))
+    print("内容缺失 " + (f"{len(content_misses)}:{','.join(content_misses)}" if content_misses else "0")
+          + " | 形状差异 " + (f"{len(shape_misses)}:{','.join(shape_misses)}" if shape_misses else "0"))
     print(f"图表选型 {chart['matched']}/{chart['expected_charts']} = {chart['accuracy']:.1%}"
           + (f",不符 {chart['mismatches']}" if chart["mismatches"] else ",全部符合预期")
           + (f";榜单扩展出图 {chart['extra_charts']}(合规,不计错)" if chart["extra_charts"] else "")
