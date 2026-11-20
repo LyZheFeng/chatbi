@@ -42,6 +42,11 @@ jobs:
           python -m pip install -r requirements.lock
       - name: 依赖一致性(pip check:声明冲突/缺依赖在新环境立刻暴露)
         run: python -m pip check
+      - name: 静态检查(ruff:未定义名/未用导入/导入顺序/bugbear;与平台无关,只在 Linux 跑一遍)
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m ruff check .
       - name: 测试(离线,FakeLLM 驱动,不需要 .env 与内网)
         run: python -X utf8 -m pytest tests -q --junitxml=pytest-report.xml
       - name: 冒烟(真起 uvicorn 进程 + 请求 /health,验证部署形态可启动)
@@ -54,3 +59,27 @@ jobs:
           path: pytest-report.xml
           if-no-files-found: ignore
           retention-days: 14
+
+  web:
+    # 前端只需要一个平台:产物是静态文件,平台差异在后端(锁文件里的可选依赖)那边
+    name: web (node ${{ matrix.node-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["24"]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: 安装依赖(npm ci:严格按 package-lock 装,锁文件不一致直接失败)
+        run: npm ci
+      - name: 构建(next build 含 TypeScript 类型检查)
+        run: npm run build

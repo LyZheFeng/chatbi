@@ -13,7 +13,7 @@ def test_connect_ro_rejects_missing(tmp_path):
 
 
 def test_readonly_connection_is_physically_readonly(conn):
-    with pytest.raises(Exception):
+    with pytest.raises(sqlite3.OperationalError):  # attempt to write a readonly database
         conn.execute("CREATE TABLE hack(x)")
 
 

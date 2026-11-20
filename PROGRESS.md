@@ -25,6 +25,14 @@
 - **验证**:本地 `pytest` 150 全绿(连跑 10 次稳定)、HTTP 冒烟通过;CI run #37(commit `2f53367`)
   `ubuntu-24.04` 与 `windows-latest` 均 **149 passed / 1 skipped**(仅剩 gold SQL 一致性,需真实数据集),
   双平台真实 uvicorn 冒烟通过,耗时 ~55s。
+- **第二轮补充(同一轮 CI 收口)**:
+  - `.pytest_tmp` 固定 basetemp 会让"同一工作区并发跑两个 pytest"互删目录(实测 5 例 setup error)
+    → 改由 `tests/conftest.py::pytest_configure` 生成 `run-<pid>-<ts>` 独立子目录,保留 24h 供排查;
+    两个 pytest 同时跑均 150 passed。
+  - 加 ruff 门禁:`ruff.toml`(E4/E7/E9/F/I/B)+ `requirements-dev.txt` 钉版本;修掉 15 条存量
+    (import 排序、未用导入/变量、`zip(strict=)`、`pytest.raises(Exception)` 收窄、E402 显式 noqa)。
+  - 前端进 CI:`web` job(runner 上 `npm ci` + `npm run build`,含 TypeScript 检查),锁 ubuntu-24.04 + node 24,
+    npm 缓存走 `web/package-lock.json`。
 
 ## 阶段 0+1 · 优化计划第一部分完成情况(2026-09-17,`optimization-plan.md`;rag-qa 侧改动见其仓 PROGRESS)
 

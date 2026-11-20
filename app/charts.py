@@ -169,7 +169,7 @@ def _plan_line(
         return None
     dim_name, labels, keys = dim
     data, excluded = [], 0
-    for r, label, key in zip(rows, labels, keys):
+    for r, label, key in zip(rows, labels, keys, strict=True):
         if label is None or (group is not None and r[group.i] is None) or any(
             not _is_num(r[m.i]) for m in measures
         ):
@@ -205,7 +205,7 @@ def _plan_bar(question: str, rows: list[list[Any]], *, cat: _Col, nums: list[_Co
             excluded += 1
             continue
         rec = {cat.name: str(d)}
-        for m, v in zip(nums, ms):
+        for m, v in zip(nums, ms, strict=True):
             rec[m.name] = v
         data.append(rec)
     if len(data) < 2:

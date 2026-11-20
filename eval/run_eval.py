@@ -125,7 +125,7 @@ def _contains_rows(gold_rows: list[list], agent_rows: list[list]) -> bool:
     pool = list(agent_rows)
     for g in gold_rows:
         for i, a in enumerate(pool):
-            if len(g) == len(a) and all(_cell_matches(gc, ac) for gc, ac in zip(g, a)):
+            if len(g) == len(a) and all(_cell_matches(gc, ac) for gc, ac in zip(g, a, strict=True)):
                 pool.pop(i)
                 break
         else:
@@ -189,8 +189,6 @@ def main() -> None:
                         help="不往 eval/results.md 追加汇总行(补题/冒烟等小跑批用)")
     args = parser.parse_args()
 
-    import re
-
     from app import db
     from app.agent import ChatbiAgent
     from app.config import Settings
@@ -228,7 +226,6 @@ def main() -> None:
     latencies: list[int] = []
     for q in questions:
         gold = db.run_select(gold_conn, q["gold"], cap=100_000, auto_limit=100_000)
-        t0 = time.perf_counter()
         resp = ask_with_retry(service, q["question"])
         ok = (
             resp.error is None

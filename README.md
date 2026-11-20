@@ -63,7 +63,8 @@
   完整堆栈进服务端日志;建库脚本原子替换(先写 .tmp 自检再替换,旧库滚动备份 .bak/.bak.1/.bak.2);
   LLM 走 openai SDK 内建重试(`llm_max_retries` 显式配置);依赖显式声明(含 pandas)并锁版本
   (`requirements.lock`,CI 先验证 requirements 自足再用 lock 锁版本),CI 在 ubuntu/windows 双平台
-  跑测试,并各起一次真实 uvicorn 进程冒烟 `/health`(不只有进程内 TestClient)。
+  跑 ruff 静态检查 + 测试,并各起一次真实 uvicorn 进程冒烟 `/health`(不只有进程内 TestClient);
+  前端另有一条 `npm ci && npm run build` 的构建 job(含 TypeScript 类型检查)。
 - 纪律:所有 tool_call 参数过 pydantic 严格校验;表格数据一律来自本地执行
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
@@ -96,7 +97,9 @@
   FakeLLM 脚本驱动、LLM 并发闸门与 token 统计、图表选型/解读/脏数据约定、API 鉴权/限流/异常兜底、
   SSE 流式事件序/鉴权/限流/CORS、DDL 注释↔数据一致性回归、评测 2.0 指标/双口径/注入定位/解读忠实性/歧义判定/整题重试、
   schema 缓存命中不碰库/库变动即失效/并发单飞、MCP stdio 协议面与护栏回传(CI 用 data/ 内现建 mini 库,不再整组跳过),
-  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`);CI 另有 `scripts/smoke_http.py` 起真实进程打 `/health`。
+  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp/run-<pid>-<ts>`,每次运行独立子目录,
+  同一工作区并发跑 pytest 不会互删);CI 另有 `scripts/smoke_http.py` 起真实进程打 `/health`、
+  ruff 静态检查(`ruff.toml`,requirements-dev.txt 钉版本)与前端 `npm run build`。
 - 未做、留给部署层(见 PROGRESS 路线图):分布式限流与 Prometheus 指标、异步任务队列/多 worker、
   熔断/fallback 模型、结构化查询意图与语义校验、schema 按需检索。
 
@@ -132,6 +135,12 @@ cd web && npm install && npm run dev                        # 前端 :http://loc
 # 3.5 评测(数字进 README 必须注明日期/口径;smoke 报数字前必跑)
 .venv/Scripts/python.exe -X utf8 eval/run_eval.py --heal on        # 50 题自然模式,明细落 eval/runs/,汇总追加 eval/results.md
 .venv/Scripts/python.exe -X utf8 eval/metrics.py --latest          # 评测 2.0:图表选型准确率 + 延迟 p50/p90(任意跑批可回放)
+
+# 3.6 本地检查(与 CI 同口径:ruff 静态检查 + 离线测试 + 前端构建)
+.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+.venv/Scripts/python.exe -m ruff check .
+.venv/Scripts/python.exe -X utf8 -m pytest tests -q
+cd web && npm ci && npm run build
 
 # 4. MCP server(stdio transport;进程内不要 print 到 stdout,那是协议通道)
 .venv/Scripts/python.exe -m app.mcp_server

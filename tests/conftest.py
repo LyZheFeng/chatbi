@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 # 必须在导入 app.* 之前:Settings 实例化要这些字段
@@ -18,6 +19,37 @@ sys.path.insert(0, str(ROOT))
 import pytest  # noqa: E402
 
 from scripts.build_db import build  # noqa: E402
+
+# 旧运行目录保留 24h 便于排查;并发进程刚建的目录 mtime 很新,不会被误删
+_OLD_RUN_S = 24 * 3600
+_RUN_DIR_RE = "run-*"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """把 pytest 临时根目录放进仓库(不依赖 Windows TEMP 权限),但每次运行用独立子目录。
+
+    以前在 pytest.ini 里写死 `--basetemp=.pytest_tmp`,同一工作区并发跑两个 pytest 时,
+    后启动的那个会在 `getbasetemp()` 里 `rm_rf` 掉前一个正在用的目录(实测 5 例 setup error)。
+    改成 `.pytest_tmp/run-<pid>-<ts>` 后互不干扰;命令行显式传 --basetemp 则尊重调用方。
+    """
+    if config.option.basetemp is not None:
+        return
+    root = ROOT / ".pytest_tmp"
+    root.mkdir(parents=True, exist_ok=True)
+    _prune_old_runs(root)
+    base = root / f"run-{os.getpid()}-{time.time_ns() // 1_000_000}"
+    base.mkdir(parents=True, exist_ok=True)
+    config.option.basetemp = str(base)
+
+
+def _prune_old_runs(root: Path) -> None:
+    cutoff = time.time() - _OLD_RUN_S
+    for d in root.glob(_RUN_DIR_RE):
+        try:
+            if d.is_dir() and d.stat().st_mtime < cutoff:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
 
 # 覆盖 build_db 会用到的列;含 2 个美国区域、可被脏数据规则命中的行(数量>=5、金额>1000)
 MINI_CSV = """Row ID,Order ID,Order Date,Ship Date,Ship Mode,Customer ID,Customer Name,Segment,City,State,Country,Region,Market,Product ID,Category,Sub-Category,Product Name,Sales,Quantity,Discount,Profit,Shipping Cost,Order Priority,Postal Code

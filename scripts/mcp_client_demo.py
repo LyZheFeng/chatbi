@@ -23,7 +23,7 @@ from openai import AsyncOpenAI
 
 CHATBI_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CHATBI_ROOT))
-from app.config import get_settings
+from app.config import get_settings  # noqa: E402 - 先注入 sys.path 才能导入项目模块
 
 SETTINGS = get_settings()
 LLM_BASE_URL = SETTINGS.llm_base_url

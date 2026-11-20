@@ -1,0 +1,9 @@
+# ruff 配置:只做"能确定是 bug/坏味道"的检查,不做会牵动全仓重排的格式化。
+# 规则集:E4/E7/E9 + F(语法/未定义名/未用导入)+ I(import 顺序)+ B(bugbear)。
+# 格式化(ruff format)不在 CI 里 gate,避免一次改几百行掩盖真实改动。
+line-length = 120
+target-version = "py313"
+extend-exclude = ["eval/runs"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]

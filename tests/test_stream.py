@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 
 from app import api
 from app.agent import ChatbiAgent
-from app.schemas import AskResponse
 from app.service import ChatbiService
 from tests.test_agent import FakeLLM, _msg, _tc
 

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.llm import _GATES, LLMBusy, LLM
+from app.llm import _GATES, LLM, LLMBusy
 
 
 def test_deepseek_request_uses_standard_parameters():

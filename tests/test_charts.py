@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 
 import pytest
 
@@ -265,10 +266,9 @@ def test_spec_has_no_toplevel_padding(question, cols, rows):
 
 
 def test_service_attaches_chart_and_reading(conn):
-    from tests.test_agent import FakeLLM, _msg, _tc
-
     from app.agent import ChatbiAgent
     from app.service import ChatbiService
+    from tests.test_agent import FakeLLM, _msg, _tc
 
     llm = FakeLLM([
         _msg([_tc("execute_sql", sql="SELECT market, SUM(sales) AS total FROM order_items i "
@@ -284,10 +284,9 @@ def test_service_attaches_chart_and_reading(conn):
 
 
 def test_no_chart_on_degraded_answer(conn):
-    from tests.test_agent import FakeLLM, _msg, _tc
-
     from app.agent import ChatbiAgent
     from app.service import ChatbiService
+    from tests.test_agent import FakeLLM, _msg, _tc
 
     llm = FakeLLM([_msg([_tc("execute_sql", sql="SELECT nope FROM order_items")])])
     svc = ChatbiService(lambda: ChatbiAgent(llm, conn, cap=50, auto_limit=10, self_heal=False))
@@ -300,10 +299,9 @@ def test_service_closes_connection_after_ask(conn):
     """评审 P0-2:每请求一个连接,ask 返回后必须已关闭,长期运行不积累句柄。"""
     import pytest as _pytest
 
-    from tests.test_agent import FakeLLM, _msg, _tc
-
     from app.agent import ChatbiAgent
     from app.service import ChatbiService
+    from tests.test_agent import FakeLLM, _msg, _tc
 
     llm = FakeLLM([
         _msg([_tc("execute_sql", sql="SELECT COUNT(*) AS n FROM orders")]),
@@ -312,5 +310,5 @@ def test_service_closes_connection_after_ask(conn):
     holder = {}
     svc = ChatbiService(lambda: holder.setdefault("agent", ChatbiAgent(llm, conn, cap=50, auto_limit=10)) or holder["agent"])
     svc.ask("多少张订单")
-    with _pytest.raises(Exception):
+    with _pytest.raises(sqlite3.ProgrammingError):
         holder["agent"].conn.execute("SELECT 1")  # 已关闭的连接不能再执行

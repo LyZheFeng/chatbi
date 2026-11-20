@@ -109,3 +109,6 @@
 - **"CI 绿"要区分"跑过了"和"跳过了"** → MCP 三个 stdio 用例因 CI 无 `data/chatbi.db`(被 gitignore)整组 skip,横幅仍是一片绿 → 让 fixture 在 `data/` 内现建 mini 库,协议面与护栏用例真跑;确实需要真实数据集的 gold 一致性用例保留 skip,但 reason 要写清缺什么。**每个 skip 都是一块没测的代码**,数量应随项目收敛而不是增加。
 - **TestClient 绿 ≠ 部署形态能跑** → 进程内 ASGI 调用不经过 uvicorn、不监听端口、不校验启动期配置;ubuntu 上起不来的问题在那层是测不出来的 → 加 `scripts/smoke_http.py` 真起子进程打 `/health`,双平台各跑一次(用系统分配端口,避免固定端口撞车)。
 - **`ubuntu-latest` 是会漂的** → 2026-10 起该标签迁 26.04,不锁版本等于把底座升级塞进某次无关的 commit → CI 矩阵钉 `ubuntu-24.04`,升级当独立改动验证。
+- **固定 `--basetemp` 让并发跑 pytest 互删目录** → 写死 `.pytest_tmp` 时,第二个进程在 `getbasetemp()` 里 `rm_rf` 掉第一个正在用的目录(实测 5 例 setup error,前 2 例通过纯属时序运气)→ 改为每次运行 `run-<pid>-<ts>` 子目录,只在启动时清理 24h 前的旧目录(刚建的 mtime 很新,不会被误删)。**"固定路径省事"类的便利,都要问一句并发时谁删谁。**
+- **lint 门禁要先"清存量"再"上闸"** → 直接加 ruff 会让 122 条告警(其中 80 条 `C408`)把 CI 永红;先明确选哪几条规则(E4/E7/E9/F/I/B,不 gate 格式化),再修完存量 15 条才开门 → 门禁第一天的价值是"以后不再变脏",不是"一次修完所有风格"。
+- **前端不构建的 CI 会漏掉类型错误** → `next build` 自带 TypeScript 检查,但后端测试与它无关,`web/` 改坏只会在用户打开页面时发现 → 加独立 `web` job:`npm ci`(锁文件不一致直接失败)+ `npm run build`;lockfile 在 Windows 生成时已包含 linux 平台的 optional binary(`@next/swc-linux-x64-gnu` 等),ubuntu 上 `npm ci` 不会缺包。
