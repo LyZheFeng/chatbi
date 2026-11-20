@@ -62,7 +62,8 @@
   token 用量统计(`stats.llm_tokens`,真实链路单题约 3.9k);service 未预期异常对外只给通用文案、
   完整堆栈进服务端日志;建库脚本原子替换(先写 .tmp 自检再替换,旧库滚动备份 .bak/.bak.1/.bak.2);
   LLM 走 openai SDK 内建重试(`llm_max_retries` 显式配置);依赖显式声明(含 pandas)并锁版本
-  (`requirements.lock`,CI 先验证 requirements 自足再用 lock 锁版本),CI 在 ubuntu/windows 双平台跑测试。
+  (`requirements.lock`,CI 先验证 requirements 自足再用 lock 锁版本),CI 在 ubuntu/windows 双平台
+  跑测试,并各起一次真实 uvicorn 进程冒烟 `/health`(不只有进程内 TestClient)。
 - 纪律:所有 tool_call 参数过 pydantic 严格校验;表格数据一律来自本地执行
   (final_answer 自报 SQL 本地重执行,保证展示表格与结论锚定同一条 SQL);
   步数耗尽/拒绝调用工具时优雅降级,error 字段说明原因,绝不编造。
@@ -94,8 +95,8 @@
 - 测试:`pytest tests` 150 例(工具校验、SQL 护栏 token 白名单/超时/原子建库、agent 循环与自愈逻辑
   FakeLLM 脚本驱动、LLM 并发闸门与 token 统计、图表选型/解读/脏数据约定、API 鉴权/限流/异常兜底、
   SSE 流式事件序/鉴权/限流/CORS、DDL 注释↔数据一致性回归、评测 2.0 指标/双口径/注入定位/解读忠实性/歧义判定/整题重试、
-  schema 缓存命中不碰库/库变动即失效/并发一致),
-  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`)。
+  schema 缓存命中不碰库/库变动即失效/并发单飞、MCP stdio 协议面与护栏回传(CI 用 data/ 内现建 mini 库,不再整组跳过),
+  不依赖网络;pytest.ini 把临时目录固定在仓库内(`.pytest_tmp`);CI 另有 `scripts/smoke_http.py` 起真实进程打 `/health`。
 - 未做、留给部署层(见 PROGRESS 路线图):分布式限流与 Prometheus 指标、异步任务队列/多 worker、
   熔断/fallback 模型、结构化查询意图与语义校验、schema 按需检索。
 

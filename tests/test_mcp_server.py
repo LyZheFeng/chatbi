@@ -51,8 +51,7 @@ def _parse_rows(text: str) -> tuple[list[str], list[list[str]]]:
     return columns, rows
 
 
-@pytest.mark.skipif(not REAL_DB.exists(), reason="需要真实 data/chatbi.db(MCP 的 DB_PATH 被锁在项目 data/ 内,conftest 的 tmp mini 库过不了启动校验)")
-def test_protocol_surface():
+def test_protocol_surface(mcp_db_path):
     """tools/resources/templates/prompts 都可发现,内容与 db.py 同源。"""
 
     async def scenario(s):
@@ -81,17 +80,20 @@ def test_protocol_surface():
         rendered = (await s.get_prompt("analyze_data", {"question": "各市场的总利润?"})).messages[0].content.text
         assert "各市场的总利润" in rendered and "中位数" in rendered and "Asia Pacific" in rendered
 
-    run_over_stdio(scenario, db_path=str(REAL_DB) if REAL_DB.exists() else None)
+    run_over_stdio(scenario, db_path=str(mcp_db_path))
 
 
-@pytest.mark.skipif(not REAL_DB.exists(), reason="需要真实 data/chatbi.db(离线 mini 库不含 gold 数据)")
-def test_execute_sql_and_guardrail_over_stdio():
+def test_execute_sql_and_guardrail_over_stdio(mcp_db_path):
     """查询经 MCP 返回真实数据;护栏拒绝以 isError + 完整消息回传。"""
+    import sqlite3
+
+    with sqlite3.connect(mcp_db_path) as c:
+        expected = c.execute("SELECT COUNT(*) FROM order_items").fetchone()[0]
 
     async def scenario(s):
         ok = await s.call_tool("execute_sql", {"sql": "SELECT COUNT(*) FROM order_items"})
         assert not ok.is_error
-        assert ok.content[0].text == "共 1 行\nCOUNT(*)\n1000"
+        assert ok.content[0].text == f"共 1 行\nCOUNT(*)\n{expected}"
 
         for bad_sql in ("DELETE FROM orders", "SELECT 1; DROP TABLE orders", "PRAGMA database_list"):
             res = await s.call_tool("execute_sql", {"sql": bad_sql})
@@ -103,7 +105,7 @@ def test_execute_sql_and_guardrail_over_stdio():
         res = await s.call_tool("execute_sql", {"sql": "SELECT * FROM nope"})
         assert res.is_error and "no such table" in res.content[0].text
 
-    run_over_stdio(scenario)
+    run_over_stdio(scenario, db_path=str(mcp_db_path))
 
 
 def test_db_path_confined_to_data_dir():

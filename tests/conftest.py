@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -42,6 +43,24 @@ def db_path(tmp_path_factory):
     out = tmp_path_factory.mktemp("db") / "test.db"
     build(csv, out)
     return out
+
+
+@pytest.fixture(scope="session")
+def mcp_db_path(db_path):
+    """供 MCP stdio 子进程用的库:必须在项目 data/ 内(McpSettings 启动时校验路径)。
+
+    CI 不提交 data/chatbi.db,以前的三个 MCP 用例就靠 skipif 静默跳过——"绿的但没测"。
+    这里退而求其次:把 conftest 的 mini 库复制进 data/ 让协议级用例在 CI 也真跑
+    (gold SQL 一致性命中真实数据集,仍按 REAL_DB 存在与否跳过)。
+    本地想复现 CI 行为:CHATBI_FORCE_MINI_DB=1 pytest tests/test_mcp_server.py
+    """
+    real = ROOT / "data" / "chatbi.db"
+    if real.exists() and not os.environ.get("CHATBI_FORCE_MINI_DB"):
+        return real
+    target = ROOT / "data" / "ci-mini.db"  # *.db 已 gitignore,不进版本库
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(db_path, target)
+    return target
 
 
 @pytest.fixture()

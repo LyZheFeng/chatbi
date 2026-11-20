@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -48,6 +49,28 @@ class SchemaCache:
         self._data: OrderedDict[SchemaCacheKey, str] = OrderedDict()
         self._hits = 0
         self._misses = 0
+
+    def get_or_render(self, key: SchemaCacheKey, render: Callable[[], str]) -> str:
+        """命中直接返回;未命中则在锁内渲染并写入 —— 单飞(single-flight),防缓存击穿。
+
+        锁覆盖渲染是刻意的:`get → 渲染 → put` 分段时,并发首调会全部 miss(8 线程各跑一遍
+        sqlite_master + 5 次 COUNT(*)),既浪费又让"并发只建一个条目 + 至少有命中"这类断言
+        变成看调度运气 —— 2026-11-02 的 ubuntu CI 正是这样红的(8 次全 miss,hits 增量 0;
+        Windows 只因线程启动更慢才"碰巧"命中)。渲染是纯读 + 百微秒级,放在锁内代价可忽略。
+        """
+        with self._lock:
+            try:
+                text = self._data.pop(key)
+            except KeyError:
+                self._misses += 1
+                text = render()
+                self._data[key] = text
+                while len(self._data) > self._max:
+                    self._data.popitem(last=False)  # 淘汰最久未用的条目
+                return text
+            self._data[key] = text  # 命中即移到队尾
+            self._hits += 1
+            return text
 
     def get(self, key: SchemaCacheKey) -> str | None:
         """命中即移到队尾(LRU);未命中返回 None 并记 miss。"""

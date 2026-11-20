@@ -128,14 +128,11 @@ def schema_text(conn: sqlite3.Connection, tables: list[str] | None = None) -> st
     """
     requested = list(tables or TABLES)
     key = _schema_cache_key(conn, requested)
-    if key is not None:
-        cached = _SCHEMA_CACHE.get(key)
-        if cached is not None:
-            return cached
-    text = _render_schema_text(conn, requested)
-    if key is not None:
-        _SCHEMA_CACHE.put(key, text)
-    return text
+    if key is None:
+        return _render_schema_text(conn, requested)
+    # get_or_render 在锁内完成「查缓存 → 渲染 → 写入」:并发首调只有一个真渲染,其余命中,
+    # 不会 8 个请求各跑一遍 COUNT(*)(A1 后续:ubuntu CI 暴露的击穿问题)。
+    return _SCHEMA_CACHE.get_or_render(key, lambda: _render_schema_text(conn, requested))
 
 
 # ---------- schema 缓存(A1,2026-11-02) ----------

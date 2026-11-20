@@ -112,7 +112,12 @@ def test_cache_is_bounded_lru():
 
 
 def test_concurrent_reads_share_one_entry(db_path):
-    """多线程各自开只读连接(与生产一致),文本一致且收敛到一个条目。"""
+    """多线程各自开只读连接(与生产一致),文本一致且收敛到一个条目。
+
+    单飞语义:锁内「查→渲染→写」,8 个线程只允许 1 次 miss、7 次 hit。
+    这条最初写成 `hits >= 1`,在 ubuntu CI 上必红(8 个线程同时穿透,hits 增量 0;
+    Windows 线程启动慢反而"碰巧"通过)—— 现在是确定值,不再看调度运气。
+    """
     db.clear_schema_cache()
     before = db.schema_cache_info()
     texts: list[str] = []
@@ -141,8 +146,6 @@ def test_concurrent_reads_share_one_entry(db_path):
     assert not errors
     assert len(texts) == 8 and len(set(texts)) == 1
     after = db.schema_cache_info()
-    # 首个线程建条目、其余命中;get→渲染→put 不是原子操作,并发下可能有多次 miss,
-    # 但结果必须收敛到**一个**条目、且本次 8 次调用全部计数(计数是累计的,取增量)
-    assert after["size"] == 1
-    assert (after["hits"] - before["hits"]) + (after["misses"] - before["misses"]) == 8
-    assert after["hits"] - before["hits"] >= 1
+    assert after["size"] == 1  # 8 次并发只建一个条目
+    assert after["misses"] - before["misses"] == 1  # 只有第一个线程真去渲染
+    assert after["hits"] - before["hits"] == 7  # 其余 7 个线程全部命中

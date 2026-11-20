@@ -4,6 +4,26 @@
 
 ## 状态:优化计划阶段 0+1 完成(2026-09-17,`optimization-plan.md` 第一部分:快赢 + 评测守护;CI 顺带复绿)→ 下一步 Day 27-28 求职材料
 
+## CI 修复 · ubuntu 红(2026-11-20,回应面试反馈"ubuntu CI 没做好")
+
+- **实锤**:`5a38b09` 的 ubuntu job 红,`test_schema_cache.py::test_concurrent_reads_share_one_entry`
+  断言 `hits 增量 >= 1` 失败;日志显示 8 线程全 miss(hits 7→7、size 1)。根因不是缓存错,而是
+  `get → 渲染 → put` 分段执行:ubuntu 线程启动快,8 个请求同时穿透(缓存击穿);windows 线程启动慢
+  才"碰巧"命中——**断言本身在赌调度**,CI 平台一换就翻红。
+- **修复**:
+  - `SchemaCache.get_or_render()`:锁内完成「查 → 渲染 → 写」(单飞),并发首调固定 1 miss + 7 hit;
+    `db.schema_text` 改走该入口。渲染是纯读 + 百微秒级,锁内执行的代价可忽略。
+  - 并发用例改确定值断言(1 miss / 7 hit / size 1);本地可用 `CHATBI_FORCE_MINI_DB=1` 复现 CI 路径。
+  - MCP 三个 stdio 用例原本在 CI **全部 skip**(`data/chatbi.db` 不入库 → "绿的但没测"):新增
+    `mcp_db_path` fixture 在 `data/` 内现建 mini 库,协议面 + 护栏两例 CI 真跑;gold SQL 一致性仍依赖
+    真实数据集,保留 skip 并写明原因。
+  - 新增 `scripts/smoke_http.py`:真起 uvicorn 进程 + 请求 `/health`(TestClient 只是进程内 ASGI 调用,
+    证明不了 ubuntu 上能起进程、能监听端口)。
+  - workflow 加固:最小权限、`concurrency` 取消旧跑、15 分钟超时、pip 缓存、`pip check`、junit 报告
+    artifact;ubuntu 固定 24.04(`ubuntu-latest` 自 2026-10 起迁 26.04,不锁会被静默换底座);
+    actions 升 v7(checkout / setup-python / upload-artifact,消 Node 20 弃用告警)。
+- **验证**:本地 `pytest` 150 全绿(连跑 10 次稳定)、HTTP 冒烟通过;ubuntu 结果待推送后由 CI 确认。
+
 ## 阶段 0+1 · 优化计划第一部分完成情况(2026-09-17,`optimization-plan.md`;rag-qa 侧改动见其仓 PROGRESS)
 
 - **阶段 0 快赢**:
