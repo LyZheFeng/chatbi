@@ -33,6 +33,9 @@
     (import 排序、未用导入/变量、`zip(strict=)`、`pytest.raises(Exception)` 收窄、E402 显式 noqa)。
   - 前端进 CI:`web` job(runner 上 `npm ci` + `npm run build`,含 TypeScript 检查),锁 ubuntu-24.04 + node 24,
     npm 缓存走 `web/package-lock.json`。
+  - **验证**:CI run #38(commit `9dbb12b`)三 job 全绿 —— `ubuntu-24.04` 52s(ruff 过、149 passed /
+    1 skipped、uvicorn 冒烟过)、`windows-latest` 84s、`web (node 24)` 31s(`Compiled successfully` +
+    `Finished TypeScript`)。
 
 ## 阶段 0+1 · 优化计划第一部分完成情况(2026-09-17,`optimization-plan.md`;rag-qa 侧改动见其仓 PROGRESS)
 
