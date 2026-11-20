@@ -22,7 +22,9 @@
   - workflow 加固:最小权限、`concurrency` 取消旧跑、15 分钟超时、pip 缓存、`pip check`、junit 报告
     artifact;ubuntu 固定 24.04(`ubuntu-latest` 自 2026-10 起迁 26.04,不锁会被静默换底座);
     actions 升 v7(checkout / setup-python / upload-artifact,消 Node 20 弃用告警)。
-- **验证**:本地 `pytest` 150 全绿(连跑 10 次稳定)、HTTP 冒烟通过;ubuntu 结果待推送后由 CI 确认。
+- **验证**:本地 `pytest` 150 全绿(连跑 10 次稳定)、HTTP 冒烟通过;CI run #37(commit `2f53367`)
+  `ubuntu-24.04` 与 `windows-latest` 均 **149 passed / 1 skipped**(仅剩 gold SQL 一致性,需真实数据集),
+  双平台真实 uvicorn 冒烟通过,耗时 ~55s。
 
 ## 阶段 0+1 · 优化计划第一部分完成情况(2026-09-17,`optimization-plan.md`;rag-qa 侧改动见其仓 PROGRESS)
 
